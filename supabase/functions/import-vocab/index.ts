@@ -2,6 +2,20 @@
 // Nur für Eltern-Konten. Benötigt das Secret ANTHROPIC_API_KEY (Supabase → Edge Functions → Secrets).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+// Server-Schlüssel: alter Name oder neues Format (JSON mit Secret Keys)
+function serverKey(): string {
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (legacy) return legacy
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}')
+    const first = Object.values(keys)[0]
+    if (typeof first === 'string') return first
+  } catch {
+    /* ignorieren */
+  }
+  throw new Error('Kein Server-Schlüssel verfügbar')
+}
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -43,7 +57,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const db = createClient(Deno.env.get('SUPABASE_URL')!, serverKey())
     const { data: u } = await db.auth.getUser(authHeader.replace(/^Bearer /, ''))
     if (!u.user) return json({ error: 'Bitte anmelden.' }, 401)
     const { data: m } = await db.from('members').select('role').eq('user_id', u.user.id).maybeSingle()

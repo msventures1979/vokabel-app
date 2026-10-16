@@ -4,10 +4,24 @@
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+// Server-Schlüssel: alter Name oder neues Format (JSON mit Secret Keys)
+function serverKey(): string {
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (legacy) return legacy
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}')
+    const first = Object.values(keys)[0]
+    if (typeof first === 'string') return first
+  } catch {
+    /* ignorieren */
+  }
+  throw new Error('Kein Server-Schlüssel verfügbar')
+}
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 Deno.serve(async (req) => {
-  const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  const db = createClient(Deno.env.get('SUPABASE_URL')!, serverKey())
   let { data: cfg } = await db.from('push_config').select('*').eq('id', 1).maybeSingle()
   if (!cfg) return json({ error: 'push_config fehlt' }, 500)
 
