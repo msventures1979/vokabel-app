@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../data/db'
 import { activeGoal, albumStats, markCardsSeen, plan, seenCards, totalStars, trainingDates } from '../data/repo'
-import { CARDS, nextCard, unlockedIds } from '../logic/album'
+import { CARDS, CLUBS, completedClubs, currentClub, nextCardText, ownedIds } from '../logic/album'
 import { speak } from '../lib/speech'
 import { play, praise, setSoundOn, soundOn } from '../lib/sounds'
-import { Confetti, PlayerCard } from '../ui/components'
+import { ClubCrest, Confetti, PlayerCard } from '../ui/components'
 import { ReminderCard } from './Reminder'
 import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
-import { goalProgress, levelFor, rulesFor, streak } from '../logic/rewards'
+import { goalProgress, levelFor, levelHint, rulesFor, streak, trophyAt } from '../logic/rewards'
 import { Btn, Card, FlameIcon, GoalTrack, Jersey, Meter, Star, TopBar } from '../ui/components'
 
 export function Home({ childId, go }: { childId: string; go: (r: Route) => void }) {
@@ -37,15 +37,19 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
 
   if (!data || !data.child.player) return null
   const { child, p, stars, goal, dates, album, seen } = data
-  const unlocked = unlockedIds(album)
-  // Erstes Öffnen auf diesem Gerät: bereits freigeschaltete Karten nicht einzeln feiern
-  const fresh = seen === undefined ? [] : unlocked.filter((id) => !seen.includes(id) && !dismissed.includes(id))
-  if (seen === undefined && unlocked.length >= 0) void markCardsSeen(childId, unlocked)
-  const newCard = fresh.length ? CARDS.find((c) => c.id === fresh[0]) : undefined
-  const upcoming = nextCard(album)
+  const unlocked = ownedIds(album)
+  // Ereignisse: neue Karten, danach vollständige Vereine (als "club:<id>")
+  const events = [...unlocked, ...completedClubs(unlocked).map((k) => `club:${k}`)]
+  // Erstes Öffnen auf diesem Gerät: bereits Erreichtes nicht einzeln feiern
+  const fresh = seen === undefined ? [] : events.filter((id) => !seen.includes(id) && !dismissed.includes(id))
+  if (seen === undefined) void markCardsSeen(childId, events)
+  const freshId = fresh[0]
+  const newCard = freshId ? CARDS.find((c) => c.id === freshId) : undefined
+  const newClub = freshId?.startsWith('club:') ? CLUBS.find((k) => `club:${k.id}` === freshId) : undefined
+  const club = currentClub(unlocked)
   const player = child.player!
 
-  const lvl = levelFor(stars)
+  const lvl = levelFor(stars, album.trainingDays, album.legacy.stars)
   const s = streak(dates, today())
   const log = p.log
   const minutes = log.activeSeconds / 60
@@ -79,14 +83,24 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         <div className="flex-1 min-w-0">
           <div className="font-display text-3xl font-extrabold uppercase truncate">{player.name}</div>
           <div className="text-lime font-display text-xl font-semibold uppercase">{lvl.name}</div>
-          {lvl.next && (
-            <div className="mt-2">
-              <div className="h-2 rounded-full bg-black/30 overflow-hidden">
-                <div className="h-full bg-gold rounded-full" style={{ width: `${lvl.progress * 100}%` }} />
-              </div>
-              <div className="text-xs text-chalk/60 mt-1">
-                noch {lvl.starsToNext} Sterne bis {lvl.next}
-              </div>
+          <div className="mt-2">
+            <div className="h-2 rounded-full bg-black/30 overflow-hidden">
+              <div
+                className="h-full bg-gold rounded-full"
+                style={{ width: `${(lvl.next ? lvl.progress : 1 - lvl.starsToTrophy / 2500) * 100}%` }}
+              />
+            </div>
+            <div className="text-xs text-chalk/60 mt-1">{levelHint(lvl)}</div>
+          </div>
+          {lvl.trophies > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1" aria-label={`${lvl.trophies} Pokale`}>
+              <span className="text-xs text-chalk/60 mr-1">Pokalvitrine</span>
+              {Array.from({ length: Math.min(lvl.trophies, 12) }, (_, i) => (
+                <span key={i} title={trophyAt(i).name} className="text-lg leading-none">
+                  {trophyAt(i).icon}
+                </span>
+              ))}
+              {lvl.trophies > 12 && <span className="text-xs text-chalk/70">+{lvl.trophies - 12}</span>}
             </div>
           )}
         </div>
@@ -144,12 +158,11 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
 
       <button onClick={() => go({ name: 'album', childId })} className="w-full text-left">
         <Card className="flex items-center gap-4">
-          <div className="text-4xl">🃏</div>
+          <ClubCrest club={club} size={44} earned={completedClubs(unlocked).includes(club.id)} />
           <div className="flex-1">
             <div className="font-display text-2xl font-extrabold uppercase">Sammelalbum</div>
             <div className="text-sm text-chalk/70">
-              {unlocked.length} von {CARDS.length} Karten
-              {upcoming && ` · nächste Karte in ${upcoming.unlock.value - album.stars} Sternen`}
+              {club.name}: {CARDS.filter((c) => c.club === club.id && unlocked.includes(c.id)).length} von 11 Spielern · {nextCardText(album)}
             </div>
           </div>
           <div className="font-display text-3xl">›</div>
@@ -222,8 +235,43 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
           </div>
         </div>
       )}
+
+      {newClub && (
+        <div className="fixed inset-0 z-40 bg-black/80 grid place-items-center p-6">
+          <Confetti />
+          <ClubSound key={newClub.id} childId={childId} />
+          <div className="text-center space-y-4 animate-pop">
+            <div className="font-display text-4xl font-extrabold uppercase text-lime">Team komplett!</div>
+            <div className="mx-auto w-fit drop-shadow-[0_8px_16px_rgba(0,0,0,.5)]">
+              <ClubCrest club={newClub} size={150} />
+            </div>
+            <div className="font-display text-3xl font-extrabold uppercase">{newClub.name}</div>
+            <p className="text-chalk/80 max-w-xs mx-auto">
+              Alle 11 Spieler sind da. Das Wappen gehört dir!
+              {CLUBS.indexOf(newClub) < CLUBS.length - 1 && ` Als Nächstes baust du die ${CLUBS[CLUBS.indexOf(newClub) + 1].name} auf.`}
+            </p>
+            <Btn
+              onClick={async () => {
+                const id = `club:${newClub.id}`
+                setDismissed((d) => [...d, id])
+                await markCardsSeen(childId, [...(seen ?? []), ...dismissed, id])
+              }}
+            >
+              Weiter
+            </Btn>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function ClubSound({ childId }: { childId: string }) {
+  useEffect(() => {
+    play('trainingDay')
+    praise('club', childId, 1200)
+  }, [childId])
+  return null
 }
 
 function SoundOnce({ childId }: { childId: string }) {

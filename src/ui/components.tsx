@@ -210,11 +210,12 @@ export function PlayerCard({
   card: { name: string; position: string; icon: string; en: string; de: string; rarity: keyof typeof RARITY_STYLE }
   locked?: boolean
   hint?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   onSpeak?: () => void
 }) {
   const r = RARITY_STYLE[card.rarity]
   const w = 'w-full'
+  if (size === 'xs') return <MiniCard card={card} locked={locked} hint={hint} onSpeak={onSpeak} />
   if (locked)
     return (
       <div className={`${w} aspect-[5/7] rounded-2xl bg-black/25 ring-2 ring-white/10 grid place-items-center text-center p-2`}>
@@ -245,5 +246,73 @@ export function PlayerCard({
         </button>
       </div>
     </div>
+  )
+}
+
+// Kleine Karte für die Aufstellung im Album
+function MiniCard({
+  card,
+  locked,
+  hint,
+  onSpeak,
+}: {
+  card: { name: string; icon: string; en: string; rarity: keyof typeof RARITY_STYLE }
+  locked?: boolean
+  hint?: string
+  onSpeak?: () => void
+}) {
+  const r = RARITY_STYLE[card.rarity]
+  if (locked)
+    return (
+      <div className="w-full aspect-[5/7] rounded-xl bg-black/30 ring-1 ring-white/15 grid place-items-center text-center p-1">
+        <div>
+          <div className="text-xl opacity-30">❔</div>
+          <div className="text-[9px] text-chalk/55 leading-tight mt-0.5">{hint}</div>
+        </div>
+      </div>
+    )
+  return (
+    <button onClick={onSpeak} className="w-full aspect-[5/7] rounded-xl p-[3px] shadow-md text-left" style={{ background: r.bg }} aria-label={`${card.name}, ${card.en}`}>
+      <div className="h-full rounded-[9px] bg-pitch/90 text-chalk flex flex-col items-center justify-between py-1 px-0.5 text-center" style={{ boxShadow: `inset 0 0 0 1.5px ${r.ring}` }}>
+        <div className="text-2xl leading-none mt-1">{card.icon}</div>
+        <div className="font-display font-extrabold uppercase leading-[0.95] text-[11px]">{card.name}</div>
+        <div className="w-full rounded-md bg-chalk text-pitch font-display font-extrabold text-[11px] leading-tight py-0.5 truncate px-0.5">{card.en}</div>
+      </div>
+    </button>
+  )
+}
+
+// Vereinswappen (erfundene Vereine): Schild in Vereinsfarben, Symbol und Kürzel. Grau, solange das Team unvollständig ist.
+export function ClubCrest({
+  club,
+  size = 64,
+  earned = true,
+}: {
+  club: { id: string; short: string; icon: string; colors: [string, string] }
+  size?: number
+  earned?: boolean
+}) {
+  const [a, b] = earned ? club.colors : ['#3b5249', '#6b7f77']
+  const id = `crest-${club.id}-${earned ? 1 : 0}`
+  return (
+    <svg width={size} height={size * 1.15} viewBox="0 0 100 115" aria-hidden style={earned ? undefined : { opacity: 0.55 }}>
+      <defs>
+        <clipPath id={id}>
+          <path d="M50 5 L92 18 V56 C92 84 72 102 50 111 C28 102 8 84 8 56 V18 Z" />
+        </clipPath>
+      </defs>
+      <path d="M50 1 L96 15 V56 C96 88 74 107 50 115 C26 107 4 88 4 56 V15 Z" fill={b} />
+      <g clipPath={`url(#${id})`}>
+        <rect x="0" y="0" width="100" height="115" fill={a} />
+        <path d="M-10 70 L110 30 L110 48 L-10 88 Z" fill={b} opacity="0.9" />
+        <rect x="0" y="0" width="100" height="26" fill="rgba(0,0,0,.18)" />
+      </g>
+      <text x="50" y="20" textAnchor="middle" fontFamily="Barlow Condensed, sans-serif" fontWeight="800" fontSize="15" fill={b} letterSpacing="2">
+        {club.short}
+      </text>
+      <text x="50" y="75" textAnchor="middle" fontSize="36" style={earned ? undefined : { filter: 'grayscale(1)' }}>
+        {club.icon}
+      </text>
+    </svg>
   )
 }

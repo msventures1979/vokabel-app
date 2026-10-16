@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { addDays, isoWeekKey } from './dates'
 import { checkAnswer } from './answers'
 import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
-import { activeDelta, goalProgress, levelFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
+import { activeDelta, goalProgress, levelFor, levelHint, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
+import { CARDS, CLUBS, clubCards, completedClubs, nextCard, ownedIds, type AlbumStats } from './album'
 import { buildExtraPractice, buildRound, choiceOptions } from './session'
 import { starterWords } from '../data/starter'
 import { unit1Words } from '../data/en-unit1'
@@ -91,7 +92,16 @@ describe('Belohnungen', () => {
   })
   it('Level nach Sternen', () => {
     expect(levelFor(0).name).toBe('Jugend')
-    expect(levelFor(1200).name).toBe('Regionalliga')
+    // Sterne allein reichen nicht mehr: ein langer Tag bringt keinen Doppelaufstieg
+    expect(levelFor(1200, 1).name).toBe('Jugend')
+    expect(levelFor(1200, 3).name).toBe('Kreisliga')
+    expect(levelFor(1200, 8).name).toBe('Regionalliga')
+    expect(levelHint(levelFor(1200, 3))).toBe('noch 5 Trainingstage bis Regionalliga')
+    // alter Stand bleibt erhalten
+    expect(levelFor(1200, 1, 1200).name).toBe('Regionalliga')
+    // Pokalvitrine nach dem Weltstar
+    expect(levelFor(16000, 60).trophies).toBe(2)
+    expect(levelFor(16000, 60).starsToTrophy).toBe(1500)
   })
 })
 
@@ -135,5 +145,39 @@ describe('Foto-Import', () => {
     expect(makeCloze('I go to school.', ['to go', 'go'])).toBe('I ___ to school.')
     expect(makeCloze("It's my uniform.", ["it's", 'it is'])).toBe('___ my uniform.')
     expect(makeCloze('No match here.', ['dog'])).toBeUndefined()
+  })
+})
+
+describe('Sammelalbum mit Vereinen', () => {
+  const base: AlbumStats = { stars: 0, trainingDays: 0, wordsLearned: 0, bestStreak: 0, legacy: { stars: 0, trainingDays: 0, bestStreak: 0 }, newTrainingDays: 0, trainedToday: false }
+
+  it('jeder Verein hat 11 Spieler in 4-3-3, Wörter sind eindeutig', () => {
+    expect(CARDS).toHaveLength(33)
+    for (const k of CLUBS) {
+      const cs = clubCards(k.id)
+      expect(cs).toHaveLength(11)
+      expect(cs.filter((c) => c.line === 'tor')).toHaveLength(1)
+      expect(cs.filter((c) => c.line === 'abwehr')).toHaveLength(4)
+      expect(cs.filter((c) => c.line === 'mittelfeld')).toHaveLength(3)
+      expect(cs.filter((c) => c.line === 'sturm')).toHaveLength(3)
+    }
+    expect(new Set(CARDS.map((c) => c.id)).size).toBe(33)
+    expect(new Set(CARDS.map((c) => c.en)).size).toBe(33)
+  })
+
+  it('höchstens eine neue Karte pro Trainingstag, egal wie viele Sterne', () => {
+    expect(ownedIds({ ...base, stars: 50000 })).toEqual([])
+    expect(ownedIds({ ...base, stars: 50000, newTrainingDays: 2 })).toEqual(['c01', 'c02'])
+  })
+
+  it('alter Stand bleibt, neue Karten füllen die Lücken in Reihenfolge', () => {
+    const s = { ...base, legacy: { stars: 1200, trainingDays: 1, bestStreak: 1 } }
+    const old = ownedIds(s)
+    expect(old).toEqual(['c01', 'c02', 'c03', 'c04', 'c06', 'c08', 'c10', 'c11', 'c13'])
+    expect(nextCard(s)?.id).toBe('c05')
+    const later = ownedIds({ ...s, newTrainingDays: 2 })
+    expect(later).toHaveLength(11)
+    expect(completedClubs(later)).toEqual(['k1'])
+    expect(nextCard({ ...s, newTrainingDays: 2 })?.club).toBe('k2')
   })
 })

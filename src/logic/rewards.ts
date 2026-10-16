@@ -62,26 +62,60 @@ export function goalProgress(goal: Goal, trainingDates: Set<DateStr>): number {
   return Math.min(n, goal.requiredDays)
 }
 
+// Aufstieg nur mit Sternen UND Trainingstagen (ein sehr langer Tag reicht nicht für den nächsten Aufstieg).
+// Wer vor RULES_SINCE schon höher war (alte Regel: nur Sterne), behält seine Liga.
 export const LEVELS = [
-  { name: 'Jugend', stars: 0 },
-  { name: 'Kreisliga', stars: 300 },
-  { name: 'Regionalliga', stars: 1000 },
-  { name: 'Bundesliga', stars: 2500 },
-  { name: 'Nationalmannschaft', stars: 5000 },
-  { name: 'Weltstar', stars: 10000 },
+  { name: 'Jugend', stars: 0, days: 0 },
+  { name: 'Kreisliga', stars: 300, days: 3 },
+  { name: 'Regionalliga', stars: 1000, days: 8 },
+  { name: 'Bundesliga', stars: 2500, days: 15 },
+  { name: 'Nationalmannschaft', stars: 5000, days: 30 },
+  { name: 'Weltstar', stars: 10000, days: 50 },
 ] as const
 
-export function levelFor(stars: number) {
+// Nach dem Weltstar: alle 2.500 Sterne ein Pokal für die Vitrine
+export const TROPHY_STARS = 2500
+export const TROPHIES = [
+  { name: 'Goldener Schuh', icon: '👟' },
+  { name: 'Meisterschale', icon: '🛡️' },
+  { name: 'Champions-Pokal', icon: '🏆' },
+  { name: 'Goldener Ball', icon: '⚽' },
+  { name: 'Weltpokal', icon: '🌍' },
+  { name: 'Supercup', icon: '🥇' },
+] as const
+
+export function levelFor(stars: number, days = 0, legacyStars = 0) {
   let idx = 0
   LEVELS.forEach((l, i) => {
-    if (stars >= l.stars) idx = i
+    if ((stars >= l.stars && days >= l.days) || legacyStars >= l.stars) idx = i
   })
   const next = LEVELS[idx + 1]
+  const starsToNext = next ? Math.max(0, next.stars - stars) : 0
+  const daysToNext = next ? Math.max(0, next.days - days) : 0
+  const starFrac = next ? Math.min(1, Math.max(0, (stars - LEVELS[idx].stars) / (next.stars - LEVELS[idx].stars))) : 1
+  const dayFrac = next ? Math.min(1, Math.max(0, (days - LEVELS[idx].days) / Math.max(1, next.days - LEVELS[idx].days))) : 1
+  const top = idx === LEVELS.length - 1
+  const trophies = top ? Math.max(0, Math.floor((stars - LEVELS[idx].stars) / TROPHY_STARS)) : 0
   return {
     index: idx,
     name: LEVELS[idx].name,
     next: next?.name,
-    progress: next ? (stars - LEVELS[idx].stars) / (next.stars - LEVELS[idx].stars) : 1,
-    starsToNext: next ? next.stars - stars : 0,
+    progress: Math.min(starFrac, dayFrac),
+    starsToNext,
+    daysToNext,
+    trophies,
+    starsToTrophy: top ? TROPHY_STARS - ((stars - LEVELS[idx].stars) % TROPHY_STARS) : 0,
   }
+}
+
+export function levelHint(l: ReturnType<typeof levelFor>): string {
+  if (!l.next) return `noch ${l.starsToTrophy} Sterne bis zum nächsten Pokal`
+  const parts = []
+  if (l.starsToNext > 0) parts.push(`${l.starsToNext} Sterne`)
+  if (l.daysToNext > 0) parts.push(l.daysToNext === 1 ? '1 Trainingstag' : `${l.daysToNext} Trainingstage`)
+  return parts.length ? `noch ${parts.join(' und ')} bis ${l.next}` : `gleich geht's in die ${l.next}!`
+}
+
+export function trophyAt(i: number) {
+  return TROPHIES[i % TROPHIES.length]
 }

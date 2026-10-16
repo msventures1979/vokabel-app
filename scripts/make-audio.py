@@ -29,6 +29,7 @@ NAMES = {'milan': 'Meelan', 'marlon': 'Marlon'}  # so spricht die englische Stim
 PRAISE = {
     'card': ['{n}, you are so smart!', 'Well done, {n}!', 'Great job, {n}! You are a superstar!', 'Amazing, {n}! What a player!', '{n}, you are brilliant!'],
     'day': ['Fantastic, {n}! Training day complete!', 'Well played, {n}! What a goal!', 'Yes! {n}, you did it!'],
+    'club': ['{n}, your team is complete!', 'Amazing, {n}! You won the club badge!'],
 }
 
 

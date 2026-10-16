@@ -5,7 +5,7 @@ import { today, type DateStr } from '../logic/dates'
 import { introduce, isDue, newProgress, review } from '../logic/scheduler'
 import { DEFAULT_RULES, goalProgress, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
 import { syncSoon } from '../sync/signal'
-import { bestStreak, type AlbumStats } from '../logic/album'
+import { bestStreak, RULES_SINCE, type AlbumStats } from '../logic/album'
 
 const now = () => Date.now()
 
@@ -100,8 +100,27 @@ export async function completeRound(childId: string, perfect: boolean) {
 // ---------- Sammelalbum ----------
 
 export async function albumStats(childId: string): Promise<AlbumStats> {
-  const [stars, dates, prog] = await Promise.all([totalStars(childId), trainingDates(childId), db.progress.where('childId').equals(childId).toArray()])
-  return { stars, trainingDays: dates.size, bestStreak: bestStreak(dates), wordsLearned: prog.filter((p) => p.box >= 3).length }
+  const [rows, dates, prog] = await Promise.all([
+    db.dayLogs.where('childId').equals(childId).toArray(),
+    trainingDates(childId),
+    db.progress.where('childId').equals(childId).toArray(),
+  ])
+  const all = [...dates]
+  const before = all.filter((d) => d < RULES_SINCE)
+  const after = all.filter((d) => d >= RULES_SINCE)
+  return {
+    stars: rows.reduce((n, r) => n + r.stars, 0),
+    trainingDays: dates.size,
+    bestStreak: bestStreak(all),
+    wordsLearned: prog.filter((p) => p.box >= 3).length,
+    legacy: {
+      stars: rows.filter((r) => r.date < RULES_SINCE).reduce((n, r) => n + r.stars, 0),
+      trainingDays: before.length,
+      bestStreak: bestStreak(before),
+    },
+    newTrainingDays: after.length,
+    trainedToday: today() >= RULES_SINCE && dates.has(today()),
+  }
 }
 
 export async function seenCards(childId: string): Promise<string[] | undefined> {
