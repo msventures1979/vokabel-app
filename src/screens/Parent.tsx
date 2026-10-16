@@ -11,6 +11,7 @@ import {
   exportAll,
   hasParentPin,
   importList,
+  setGoalImage,
   restoreAll,
   setAssignment,
   setGoal,
@@ -27,6 +28,7 @@ import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
 import { PhotoImport } from './PhotoImport'
+import { prizeImage } from '../lib/image'
 import { signInParent, useSyncState } from '../sync/account'
 import { AccountForm } from './Welcome'
 
@@ -316,6 +318,7 @@ function ChildPanel({ childId }: { childId: string }) {
             Aktuell: {goal.title}, {gp} von {goal.requiredDays} Trainingstagen.
           </p>
         )}
+        {goal && goal.status !== 'handedOver' && <PrizePhoto goalId={goal.id} image={goal.image} onDone={flash} />}
         {goal?.status === 'reached' && (
           <div className="rounded-2xl bg-lime text-pitch p-3">
             <div className="font-display text-xl font-extrabold uppercase">Ziel erreicht!</div>
@@ -521,6 +524,47 @@ function DataPanel() {
         </label>
       </Card>
       {msg && <p className="text-center text-gold">{msg}</p>}
+    </div>
+  )
+}
+
+// Foto der echten Belohnung (wird den Kindern in der Kabine gezeigt)
+function PrizePhoto({ goalId, image, onDone }: { goalId: string; image?: string; onDone: (m: string) => void }) {
+  const [cutout, setCutout] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    prizeImage(file, cutout)
+      .then((url) => setGoalImage(goalId, url))
+      .then(() => onDone('Foto gespeichert'))
+      .catch(() => onDone('Das Foto konnte nicht gelesen werden.'))
+      .finally(() => setBusy(false))
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-20 w-20 shrink-0 rounded-2xl bg-pitch-3/60 ring-1 ring-white/10 grid place-items-center overflow-hidden">
+        {image ? <img src={image} alt="" className="max-h-[88%] max-w-[88%] object-contain" /> : <span className="text-3xl opacity-60">🎁</span>}
+      </div>
+      <div className="flex-1 space-y-2">
+        <label className={`block text-center font-display font-extrabold uppercase rounded-2xl px-3 py-2 text-sm bg-white/5 ring-1 ring-white/20 ${busy ? 'opacity-40' : 'cursor-pointer'}`}>
+          {busy ? 'Wird vorbereitet …' : image ? 'Anderes Foto wählen' : 'Foto der Belohnung wählen'}
+          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={busy} />
+        </label>
+        <div className="flex items-center justify-between gap-2 text-xs text-chalk/70">
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={cutout} onChange={(e) => setCutout(e.target.checked)} className="accent-lime" />
+            Weißen Hintergrund entfernen
+          </label>
+          {image && (
+            <button className="underline" onClick={() => setGoalImage(goalId, undefined)}>
+              Entfernen
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

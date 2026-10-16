@@ -157,19 +157,40 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
       </button>
 
       {goal && (
-        <Card>
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-sm text-chalk/60 uppercase tracking-wider">Dein Ziel</div>
-              <div className="font-display text-3xl font-extrabold uppercase">{goal.title}</div>
+        <Card className="relative overflow-hidden">
+          {goal.image ? (
+            <div className="flex items-center gap-4">
+              <div className="relative h-28 w-28 shrink-0 grid place-items-center">
+                <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(200,245,96,.35)_0%,rgba(200,245,96,0)_68%)]" />
+                <img
+                  src={goal.image}
+                  alt={goal.title}
+                  className={`absolute inset-0 h-full w-full object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,.45)] ${goal.status === 'reached' ? 'animate-pop' : 'animate-float'}`}
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm text-chalk/60 uppercase tracking-wider">{goal.status === 'reached' ? 'Gewonnen!' : 'Dein Ziel'}</div>
+                <div className="font-display text-3xl font-extrabold uppercase leading-none break-words">{goal.title}</div>
+                <div className="font-display text-3xl font-extrabold mt-1">
+                  {gp}
+                  <span className="text-chalk/50 text-xl"> / {goal.requiredDays}</span>
+                </div>
+              </div>
             </div>
-            <div className="font-display text-3xl font-extrabold">
-              {gp}
-              <span className="text-chalk/50 text-xl"> / {goal.requiredDays}</span>
+          ) : (
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="text-sm text-chalk/60 uppercase tracking-wider">Dein Ziel</div>
+                <div className="font-display text-3xl font-extrabold uppercase">{goal.title}</div>
+              </div>
+              <div className="font-display text-3xl font-extrabold">
+                {gp}
+                <span className="text-chalk/50 text-xl"> / {goal.requiredDays}</span>
+              </div>
             </div>
-          </div>
+          )}
           <div className="mt-3">
-            <GoalTrack value={gp} max={goal.requiredDays} />
+            <GoalTrack value={gp} max={goal.requiredDays} prize={goal.image} />
           </div>
           <p className="text-sm text-chalk/70 mt-2">
             {goal.status === 'reached'

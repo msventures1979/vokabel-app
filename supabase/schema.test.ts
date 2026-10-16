@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-const sql = ['001_schema.sql', '002_child_settings.sql', '003_push.sql'].map((f) => readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8')).join('\n')
+const sql = ['001_schema.sql', '002_child_settings.sql', '003_push.sql', '005_goal_image.sql'].map((f) => readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8')).join('\n')
 let db: PGlite
 
 const PARENT = '00000000-0000-0000-0000-000000000001'

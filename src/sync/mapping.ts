@@ -27,6 +27,7 @@ export const toServer = {
     start_date: g.startDate,
     status: g.status === 'handedOver' ? 'handedOver' : 'active',
     handed_over_on: g.handedOverOn ?? null,
+    image: g.image ?? null,
   }),
   progress: (p: Progress, fam: string): Row => ({
     family_id: fam,
@@ -78,6 +79,7 @@ export const fromServer = {
     startDate: r.start_date as string,
     status: r.status as Goal['status'],
     handedOverOn: opt(r.handed_over_on),
+    image: opt(r.image),
   }),
   progress: (r: Row): Progress => ({
     id: `${r.child_id}:${r.word_id}`,

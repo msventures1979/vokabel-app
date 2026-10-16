@@ -193,6 +193,12 @@ export async function setGoal(childId: string, title: string, requiredDays: numb
   syncSoon()
 }
 
+export async function setGoalImage(goalId: string, image: string | undefined) {
+  const g = await db.goals.get(goalId)
+  if (g) await db.goals.put({ ...g, image, dirty: now() })
+  syncSoon()
+}
+
 export async function confirmHandover(goalId: string) {
   const g = await db.goals.get(goalId)
   if (g) await db.goals.put({ ...g, status: 'handedOver', handedOverOn: today(), dirty: now() })

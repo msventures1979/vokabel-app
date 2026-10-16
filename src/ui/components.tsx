@@ -69,7 +69,7 @@ export function Meter({ value, max, label, done }: { value: number; max: number;
 }
 
 // Ball rollt mit jedem Trainingstag Richtung Tor.
-export function GoalTrack({ value, max }: { value: number; max: number }) {
+export function GoalTrack({ value, max, prize }: { value: number; max: number; prize?: string }) {
   const pct = max > 0 ? Math.min(1, value / max) : 0
   const reached = pct >= 1
   return (
@@ -77,13 +77,14 @@ export function GoalTrack({ value, max }: { value: number; max: number }) {
       <div className="absolute inset-y-0 left-1/2 w-px bg-white/25" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 rounded-full border border-white/25" />
       {/* Tor */}
+      {prize && <img src={prize} alt="" className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 object-contain opacity-90" />}
       <div
-        className={`absolute right-0 top-2 bottom-2 w-7 rounded-l-md border-2 border-r-0 border-chalk ${reached ? 'animate-net bg-lime/30' : ''}`}
+        className={`absolute right-0 top-2 bottom-2 ${prize ? 'w-12' : 'w-7'} rounded-l-md border-2 border-r-0 border-chalk ${reached ? 'animate-net bg-lime/30' : ''}`}
         style={{ backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 2px, transparent 2px 6px)' }}
       />
       <div
         className="absolute top-1/2 -translate-y-1/2 transition-all duration-700"
-        style={{ left: `calc(${pct * 100}% * 0.86 + 6px)` }}
+        style={{ left: `calc(${pct * 100}% * ${prize ? 0.8 : 0.86} + 6px)` }}
       >
         <Ball size={34} />
       </div>

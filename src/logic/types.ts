@@ -103,4 +103,5 @@ export interface Goal extends Syncable {
   startDate: DateStr
   status: 'active' | 'reached' | 'handedOver' // 'reached' wird nur berechnet, nie gespeichert
   handedOverOn?: DateStr
+  image?: string // Foto der Belohnung (Data-URL)
 }
