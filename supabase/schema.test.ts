@@ -27,7 +27,7 @@ const q = (text: string, params: unknown[] = []) => db.query(text, params)
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role;
     create schema auth;
     create table auth.users (id uuid primary key);
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;

@@ -60,3 +60,9 @@ language sql stable security definer set search_path = public as $$
     )
 $$;
 revoke execute on function public.reminders_due(int) from public, anon, authenticated;
+
+-- Server-Funktionen (Edge Functions) laufen als service_role und brauchen ausdrückliche Rechte
+grant select, update on public.push_config to service_role;
+grant select, update, delete on public.push_subscriptions to service_role;
+grant select on public.members to service_role;
+grant execute on function public.reminders_due(int) to service_role;
