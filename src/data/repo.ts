@@ -5,6 +5,7 @@ import { today, type DateStr } from '../logic/dates'
 import { introduce, isDue, newProgress, review } from '../logic/scheduler'
 import { DEFAULT_RULES, goalProgress, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
 import { syncSoon } from '../sync/signal'
+import { bestStreak, type AlbumStats } from '../logic/album'
 
 const now = () => Date.now()
 
@@ -94,6 +95,20 @@ export async function completeRound(childId: string, perfect: boolean) {
   }))
   syncSoon()
   return after
+}
+
+// ---------- Sammelalbum ----------
+
+export async function albumStats(childId: string): Promise<AlbumStats> {
+  const [stars, dates, prog] = await Promise.all([totalStars(childId), trainingDates(childId), db.progress.where('childId').equals(childId).toArray()])
+  return { stars, trainingDays: dates.size, bestStreak: bestStreak(dates), wordsLearned: prog.filter((p) => p.box >= 3).length }
+}
+
+export async function seenCards(childId: string): Promise<string[] | undefined> {
+  return getMeta<string[]>(`seenCards:${childId}`)
+}
+export async function markCardsSeen(childId: string, ids: string[]) {
+  await setMeta(`seenCards:${childId}`, ids)
 }
 
 // ---------- Lernstand ----------

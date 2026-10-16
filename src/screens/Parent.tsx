@@ -26,6 +26,7 @@ import { goalProgress, rulesFor, streak } from '../logic/rewards'
 import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
+import { PhotoImport } from './PhotoImport'
 import { signInParent, useSyncState } from '../sync/account'
 import { AccountForm } from './Welcome'
 
@@ -468,6 +469,7 @@ function DataPanel() {
 
   return (
     <div className="space-y-4">
+      <PhotoImport />
       <Card className="space-y-3">
         <div className="font-display text-xl font-extrabold uppercase">Wortliste importieren</div>
         <p className="text-sm text-chalk/75">Importdatei von Claude auswählen oder den Inhalt hier einfügen.</p>

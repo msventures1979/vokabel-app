@@ -8,6 +8,7 @@ import { PlayerSetup } from './screens/PlayerSetup'
 import { Home } from './screens/Home'
 import { Training, type TrainingKind } from './screens/Training'
 import { Parent } from './screens/Parent'
+import { Album } from './screens/Album'
 
 export type Route =
   | { name: 'pick' }
@@ -15,6 +16,7 @@ export type Route =
   | { name: 'home'; childId: string }
   | { name: 'train'; childId: string; kind: TrainingKind }
   | { name: 'parent' }
+  | { name: 'album'; childId: string }
 
 const LAST_KEY = 'vokabel:lastChild'
 function readLast(): string | null {
@@ -92,6 +94,7 @@ export default function App() {
       {route.name === 'home' && <Home childId={route.childId} go={go} />}
       {route.name === 'train' && <Training key={nav} childId={route.childId} kind={route.kind} go={go} />}
       {route.name === 'parent' && <Parent go={go} />}
+      {route.name === 'album' && <Album childId={route.childId} go={go} />}
     </div>
   )
 }

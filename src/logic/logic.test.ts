@@ -127,3 +127,13 @@ describe('Runde', () => {
     expect(unit1Words).toHaveLength(26)
   })
 })
+
+describe('Foto-Import', () => {
+  it('baut Lückensätze aus Beispielsätzen', async () => {
+    const { makeCloze } = await import('../screens/PhotoImport')
+    expect(makeCloze('My house is big.', ['house'])).toBe('My ___ is big.')
+    expect(makeCloze('I go to school.', ['to go', 'go'])).toBe('I ___ to school.')
+    expect(makeCloze("It's my uniform.", ["it's", 'it is'])).toBe('___ my uniform.')
+    expect(makeCloze('No match here.', ['dog'])).toBeUndefined()
+  })
+})

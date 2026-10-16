@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-const sql = ['001_schema.sql', '002_child_settings.sql'].map((f) => readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8')).join('\n')
+const sql = ['001_schema.sql', '002_child_settings.sql', '003_push.sql'].map((f) => readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8')).join('\n')
 let db: PGlite
 
 const PARENT = '00000000-0000-0000-0000-000000000001'
@@ -136,5 +136,22 @@ describe('Schema und Zugriffsregeln', () => {
 
   it('Geräte können keine Codes erzeugen', async () => {
     await expect(as(DEVICE, true, () => q(`select public.create_pairing_code('parent')`))).rejects.toThrow(/Nur Eltern/)
+  })
+
+  it('Erinnerungen: nur eigenes Abo, fällig nur ohne Trainingstag', async () => {
+    await as(DEVICE, true, () =>
+      q(`insert into public.push_subscriptions (endpoint, family_id, child_ids, hour, p256dh, auth) values ('https://push/1', $1, '{milan,marlon}', 16, 'k', 'a')`, [fam]),
+    )
+    await expect(as(DEVICE, true, () => q(`select * from public.push_config`))).rejects.toThrow()
+    await expect(as(DEVICE, true, () => q(`select * from public.reminders_due(16)`))).rejects.toThrow()
+    const other = await as(PARENT, false, () => q(`select * from public.push_subscriptions`))
+    expect(other.rows).toHaveLength(0) // Eltern sehen fremde Geräte-Abos nicht
+    const due = await q<{ child_id: string }>(`select * from public.reminders_due(16)`)
+    expect(due.rows.map((r) => r.child_id).sort()).toEqual(['marlon', 'milan'])
+    expect((await q(`select * from public.reminders_due(17)`)).rows).toHaveLength(0)
+    // Milan hat heute schon einen Trainingstag (Gerätezeile von vorher: 300 s, 50 Antworten -> ergänzen)
+    await q(`update public.day_logs set active_seconds = 1000, round_done = true where child_id = 'milan'`)
+    const due2 = await q<{ child_id: string }>(`select * from public.reminders_due(16)`)
+    expect(due2.rows.map((r) => r.child_id)).toEqual(['marlon'])
   })
 })

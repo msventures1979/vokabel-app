@@ -1,7 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../data/db'
-import { activeGoal, plan, totalStars, trainingDates } from '../data/repo'
+import { activeGoal, albumStats, markCardsSeen, plan, seenCards, totalStars, trainingDates } from '../data/repo'
+import { CARDS, nextCard, unlockedIds } from '../logic/album'
+import { speak } from '../lib/speech'
+import { Confetti, PlayerCard } from '../ui/components'
+import { ReminderCard } from './Reminder'
 import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
@@ -12,8 +16,15 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const data = useLiveQuery(async () => {
     const child = await db.children.get(childId)
     if (!child) return null
-    const [p, stars, goal, dates] = await Promise.all([plan(childId), totalStars(childId), activeGoal(childId), trainingDates(childId)])
-    return { child, p, stars, goal, dates }
+    const [p, stars, goal, dates, album, seen] = await Promise.all([
+      plan(childId),
+      totalStars(childId),
+      activeGoal(childId),
+      trainingDates(childId),
+      albumStats(childId),
+      seenCards(childId),
+    ])
+    return { child, p, stars, goal, dates, album, seen }
   }, [childId])
 
   useEffect(() => {
@@ -21,8 +32,16 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
     else if (data && !data.child.player) go({ name: 'setup', childId })
   }, [data, childId, go])
 
+  const [dismissed, setDismissed] = useState<string[]>([])
+
   if (!data || !data.child.player) return null
-  const { child, p, stars, goal, dates } = data
+  const { child, p, stars, goal, dates, album, seen } = data
+  const unlocked = unlockedIds(album)
+  // Erstes Öffnen auf diesem Gerät: bereits freigeschaltete Karten nicht einzeln feiern
+  const fresh = seen === undefined ? [] : unlocked.filter((id) => !seen.includes(id) && !dismissed.includes(id))
+  if (seen === undefined && unlocked.length >= 0) void markCardsSeen(childId, unlocked)
+  const newCard = fresh.length ? CARDS.find((c) => c.id === fresh[0]) : undefined
+  const upcoming = nextCard(album)
   const player = child.player!
 
   const lvl = levelFor(stars)
@@ -122,6 +141,20 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         </Card>
       )}
 
+      <button onClick={() => go({ name: 'album', childId })} className="w-full text-left">
+        <Card className="flex items-center gap-4">
+          <div className="text-4xl">🃏</div>
+          <div className="flex-1">
+            <div className="font-display text-2xl font-extrabold uppercase">Sammelalbum</div>
+            <div className="text-sm text-chalk/70">
+              {unlocked.length} von {CARDS.length} Karten
+              {upcoming && ` · nächste Karte in ${upcoming.unlock.value - album.stars} Sternen`}
+            </div>
+          </div>
+          <div className="font-display text-3xl">›</div>
+        </Card>
+      </button>
+
       {goal && (
         <Card>
           <div className="flex items-baseline justify-between">
@@ -143,6 +176,27 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
               : `Noch ${goal.requiredDays - gp} Trainingstage. Jeder Tag mit ${minMin} Minuten Training bringt den Ball näher ans Tor.`}
           </p>
         </Card>
+      )}
+      <ReminderCard childId={childId} />
+
+      {newCard && (
+        <div className="fixed inset-0 z-40 bg-black/70 grid place-items-center p-6">
+          <Confetti />
+          <div className="text-center space-y-4 animate-pop">
+            <div className="font-display text-4xl font-extrabold uppercase text-lime">Neue Karte!</div>
+            <div className="mx-auto w-56">
+              <PlayerCard card={newCard} size="lg" onSpeak={() => speak(newCard.en)} />
+            </div>
+            <Btn
+              onClick={async () => {
+                setDismissed((d) => [...d, newCard.id])
+                await markCardsSeen(childId, [...(seen ?? []), ...dismissed, newCard.id])
+              }}
+            >
+              Ins Album
+            </Btn>
+          </div>
+        </div>
       )}
     </div>
   )

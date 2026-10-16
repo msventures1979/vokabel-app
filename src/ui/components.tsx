@@ -190,3 +190,59 @@ export function WordImage({ image, size = 96 }: { image: string; size?: number }
     </span>
   )
 }
+
+const RARITY_STYLE = {
+  bronze: { bg: 'linear-gradient(160deg,#e9b083,#a8693d)', label: 'Bronze', ring: '#7a4a28' },
+  silver: { bg: 'linear-gradient(160deg,#f1f4f7,#9aa6b2)', label: 'Silber', ring: '#6b7680' },
+  gold: { bg: 'linear-gradient(160deg,#ffe58a,#d9a21b)', label: 'Gold', ring: '#9a6f00' },
+  legend: { bg: 'linear-gradient(160deg,#c8f560,#0ea5e9 55%,#7c3aed)', label: 'Legende', ring: '#3b1d80' },
+} as const
+
+// Spielerkarte im Sammelalbum
+export function PlayerCard({
+  card,
+  locked,
+  hint,
+  size = 'md',
+  onSpeak,
+}: {
+  card: { name: string; position: string; icon: string; en: string; de: string; rarity: keyof typeof RARITY_STYLE }
+  locked?: boolean
+  hint?: string
+  size?: 'sm' | 'md' | 'lg'
+  onSpeak?: () => void
+}) {
+  const r = RARITY_STYLE[card.rarity]
+  const w = 'w-full'
+  if (locked)
+    return (
+      <div className={`${w} aspect-[5/7] rounded-2xl bg-black/25 ring-2 ring-white/10 grid place-items-center text-center p-2`}>
+        <div>
+          <div className="text-4xl opacity-30">❔</div>
+          <div className="text-[11px] text-chalk/60 mt-1 leading-tight">{hint}</div>
+        </div>
+      </div>
+    )
+  const big = size === 'lg'
+  return (
+    <div className={`${w} aspect-[5/7] rounded-2xl p-1.5 shadow-lg`} style={{ background: r.bg }}>
+      <div className="h-full rounded-xl bg-pitch/90 text-chalk flex flex-col items-center justify-between p-2 text-center" style={{ boxShadow: `inset 0 0 0 2px ${r.ring}` }}>
+        <div className={`font-display uppercase tracking-widest ${big ? 'text-sm' : 'text-[10px]'} text-chalk/70`}>{r.label}</div>
+        <div className={big ? 'text-7xl' : 'text-4xl'}>{card.icon}</div>
+        <div>
+          <div className={`font-display font-extrabold uppercase leading-none ${big ? 'text-3xl' : 'text-base'}`}>{card.name}</div>
+          <div className={`${big ? 'text-sm' : 'text-[10px]'} text-chalk/60`}>{card.position}</div>
+        </div>
+        <button
+          onClick={onSpeak}
+          className={`w-full rounded-lg bg-chalk text-pitch ${big ? 'py-2' : 'py-1'} leading-tight`}
+          disabled={!onSpeak}
+          aria-label={`${card.en} vorlesen`}
+        >
+          <div className={`font-display font-extrabold ${big ? 'text-2xl' : 'text-sm'}`}>{card.en}</div>
+          <div className={`${big ? 'text-sm' : 'text-[10px]'} opacity-70`}>{card.de}</div>
+        </button>
+      </div>
+    </div>
+  )
+}
