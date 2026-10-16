@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { seed } from './data/db'
+import { getMeta, seed } from './data/db'
+import { initSync, useSyncState } from './sync/account'
+import { Welcome } from './screens/Welcome'
 import { ProfilePicker } from './screens/ProfilePicker'
 import { PlayerSetup } from './screens/PlayerSetup'
 import { Home } from './screens/Home'
@@ -38,10 +40,16 @@ export default function App() {
     return last ? { name: 'home', childId: last } : { name: 'pick' }
   })
 
+  const sync = useSyncState()
+  const [localOnly, setLocalOnly] = useState<boolean | null>(null)
+
   useEffect(() => {
-    seed()
-      .then(() => setReady(true))
-      .catch((e) => setError(String(e?.message ?? e)))
+    ;(async () => {
+      await initSync()
+      await seed()
+      setLocalOnly(!!(await getMeta('localOnly')))
+      setReady(true)
+    })().catch((e) => setError(String(e?.message ?? e)))
   }, [])
 
   const [nav, setNav] = useState(0)
@@ -61,7 +69,19 @@ export default function App() {
         <p className="mt-4 text-xs text-chalk/50">{error}</p>
       </div>
     )
-  if (!ready) return null
+  if (!ready || localOnly === null) return null
+
+  if (sync.configured && !sync.familyId && !localOnly)
+    return (
+      <div className="min-h-full max-w-xl mx-auto px-4 pb-8 pt-[max(12px,env(safe-area-inset-top))]">
+        <Welcome
+          onDone={async () => {
+            setLocalOnly(!!(await getMeta('localOnly')))
+            go({ name: 'pick' })
+          }}
+        />
+      </div>
+    )
 
   return (
     <div className="min-h-full max-w-xl mx-auto px-4 pb-8 pt-[max(12px,env(safe-area-inset-top))]">

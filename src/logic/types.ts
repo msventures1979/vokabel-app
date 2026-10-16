@@ -1,6 +1,11 @@
 import type { DateStr } from './dates'
 
-export interface Word {
+// dirty: Zeitstempel einer lokalen Änderung, die noch zum Server muss
+interface Syncable {
+  dirty?: number
+}
+
+export interface Word extends Syncable {
   id: string
   listId: string
   order: number
@@ -15,29 +20,37 @@ export interface Word {
   image?: string
 }
 
-export interface WordList {
+export interface WordList extends Syncable {
   id: string
   title: string
   subject: string
   testDate?: DateStr
 }
 
-export interface Child {
+export interface Player {
+  name: string
+  number: number
+  color: string
+}
+
+export interface Child extends Syncable {
   id: string
   name: string
   order?: number
   newPerDay: number
-  player?: { name: string; number: number; color: string }
+  player?: Player
+  playerDirty?: number
 }
 
-export interface Assignment {
+export interface Assignment extends Syncable {
   id: string // `${childId}:${listId}`
   childId: string
   listId: string
+  active?: boolean // false = abgewählt
 }
 
 // Fach 0 = noch nicht eingeführt, 1–5 = Karteikasten, 6 = gelernt
-export interface Progress {
+export interface Progress extends Syncable {
   id: string // `${childId}:${wordId}`
   childId: string
   wordId: string
@@ -48,8 +61,21 @@ export interface Progress {
   introducedOn?: DateStr
 }
 
+// Gespeicherte Tageswerte eines Geräts
+export interface DayLogRow extends Syncable {
+  id: string // `${childId}:${date}:${deviceId}`
+  childId: string
+  date: DateStr
+  deviceId: string
+  activeSeconds: number
+  answers: number
+  roundDone: boolean
+  stars: number
+  newIntroduced: number
+}
+
+// Summe über alle Geräte eines Tages
 export interface DayLog {
-  id: string // `${childId}:${date}`
   childId: string
   date: DateStr
   activeSeconds: number
@@ -60,17 +86,12 @@ export interface DayLog {
   newIntroduced: number
 }
 
-export interface Goal {
+export interface Goal extends Syncable {
   id: string
   childId: string
   title: string
   requiredDays: number
   startDate: DateStr
-  status: 'active' | 'reached' | 'handedOver'
+  status: 'active' | 'reached' | 'handedOver' // 'reached' wird nur berechnet, nie gespeichert
   handedOverOn?: DateStr
-}
-
-export interface ChildStats {
-  childId: string
-  stars: number
 }

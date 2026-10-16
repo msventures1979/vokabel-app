@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../data/db'
-import { activeGoal, plan, trainingDates } from '../data/repo'
+import { activeGoal, plan, totalStars, trainingDates } from '../data/repo'
+import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
 import { goalProgress, levelFor, MIN_ACTIVE_SECONDS, MIN_ANSWERS, streak } from '../logic/rewards'
@@ -11,8 +12,8 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const data = useLiveQuery(async () => {
     const child = await db.children.get(childId)
     if (!child) return null
-    const [p, stats, goal, dates] = await Promise.all([plan(childId), db.stats.get(childId), activeGoal(childId), trainingDates(childId)])
-    return { child, p, stars: stats?.stars ?? 0, goal, dates }
+    const [p, stars, goal, dates] = await Promise.all([plan(childId), totalStars(childId), activeGoal(childId), trainingDates(childId)])
+    return { child, p, stars, goal, dates }
   }, [childId])
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         title="Kabine"
         right={
           <div className="flex items-center gap-3 font-display text-xl font-extrabold">
+            <SyncBadge />
             <span className="flex items-center gap-1" title="Serie">
               <FlameIcon /> {s.days}
             </span>

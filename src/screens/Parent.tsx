@@ -13,7 +13,9 @@ import {
   restoreAll,
   setAssignment,
   setGoal,
+  setNewPerDay,
   setParentPin,
+  totalStars,
   trainingDates,
   wordPool,
 } from '../data/repo'
@@ -21,9 +23,22 @@ import { today } from '../logic/dates'
 import { goalProgress, streak } from '../logic/rewards'
 import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
+import { DevicesPanel } from './Devices'
+import { useSyncState } from '../sync/account'
 
 export function Parent({ go }: { go: (r: Route) => void }) {
   const [unlocked, setUnlocked] = useState(false)
+  const sync = useSyncState()
+  if (sync.familyId && sync.role === 'device')
+    return (
+      <div>
+        <TopBar onBack={() => go({ name: 'pick' })} title="Eltern-Bereich" />
+        <Card className="mt-4">
+          <div className="font-display text-2xl font-extrabold uppercase">Nur auf dem Eltern-Handy</div>
+          <p className="text-chalk/75 mt-1">Dieses Gerät ist ein Kinder-Gerät. Ziele, Wörter und Einstellungen änderst du in der App auf deinem eigenen Handy.</p>
+        </Card>
+      </div>
+    )
   if (!unlocked) return <PinGate onBack={() => go({ name: 'pick' })} onOk={() => setUnlocked(true)} />
   return <ParentArea go={go} />
 }
@@ -108,26 +123,32 @@ function ParentArea({ go }: { go: (r: Route) => void }) {
           <button
             key={c.id}
             onClick={() => setTab(c.id)}
-            className={`flex-1 rounded-xl py-2 font-display text-xl font-extrabold uppercase ${tab === c.id ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
+            className={`flex-1 rounded-xl py-2 font-display text-lg font-extrabold uppercase ${tab === c.id ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
           >
             {c.name}
           </button>
         ))}
         <button
+          onClick={() => setTab('devices')}
+          className={`flex-1 rounded-xl py-2 font-display text-lg font-extrabold uppercase ${tab === 'devices' ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
+        >
+          Geräte
+        </button>
+        <button
           onClick={() => setTab('data')}
-          className={`flex-1 rounded-xl py-2 font-display text-xl font-extrabold uppercase ${tab === 'data' ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
+          className={`flex-1 rounded-xl py-2 font-display text-lg font-extrabold uppercase ${tab === 'data' ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
         >
           Daten
         </button>
       </div>
-      {tab === 'data' ? <DataPanel /> : <ChildPanel childId={tab} key={tab} />}
+      {tab === 'data' ? <DataPanel /> : tab === 'devices' ? <DevicesPanel /> : <ChildPanel childId={tab} key={tab} />}
     </div>
   )
 }
 
 function ChildPanel({ childId }: { childId: string }) {
   const data = useLiveQuery(async () => {
-    const [child, pool, prog, log, dates, goal, lists, assigns, stats] = await Promise.all([
+    const [child, pool, prog, log, dates, goal, lists, assigns, stars] = await Promise.all([
       db.children.get(childId),
       wordPool(childId),
       db.progress.where('childId').equals(childId).toArray(),
@@ -136,9 +157,9 @@ function ChildPanel({ childId }: { childId: string }) {
       activeGoal(childId),
       db.lists.toArray(),
       db.assignments.where('childId').equals(childId).toArray(),
-      db.stats.get(childId),
+      totalStars(childId),
     ])
-    return { child, pool, prog, log, dates, goal, lists, assigns, stars: stats?.stars ?? 0 }
+    return { child, pool, prog, log, dates, goal, lists, assigns, stars }
   }, [childId])
   const [goalTitle, setGoalTitle] = useState<string | null>(null)
   const [goalDays, setGoalDays] = useState<number | null>(null)
@@ -255,11 +276,11 @@ function ChildPanel({ childId }: { childId: string }) {
         <div className="flex items-center justify-between">
           <span className="text-chalk/80">Neue Wörter pro Tag</span>
           <div className="flex items-center gap-3">
-            <Btn size="sm" variant="ghost" onClick={() => db.children.update(childId, { newPerDay: Math.max(1, child.newPerDay - 1) })}>
+            <Btn size="sm" variant="ghost" onClick={() => setNewPerDay(child, Math.max(1, child.newPerDay - 1))}>
               −
             </Btn>
             <span className="font-display text-2xl font-extrabold w-6 text-center">{child.newPerDay}</span>
-            <Btn size="sm" variant="ghost" onClick={() => db.children.update(childId, { newPerDay: Math.min(15, child.newPerDay + 1) })}>
+            <Btn size="sm" variant="ghost" onClick={() => setNewPerDay(child, Math.min(15, child.newPerDay + 1))}>
               +
             </Btn>
           </div>
@@ -270,7 +291,7 @@ function ChildPanel({ childId }: { childId: string }) {
         <div className="font-display text-xl font-extrabold uppercase">Wortlisten</div>
         {lists.length === 0 && <p className="text-sm text-chalk/70">Noch keine Listen vorhanden.</p>}
         {lists.map((l) => {
-          const on = assigns.some((a) => a.listId === l.id)
+          const on = assigns.some((a) => a.listId === l.id && a.active !== false)
           return (
             <label key={l.id} className="flex items-center justify-between gap-3 py-1">
               <span>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '../data/db'
+import { setPlayer } from '../data/repo'
 import type { Route } from '../App'
 import { Btn, JERSEY_COLORS, Jersey, TopBar } from '../ui/components'
 
@@ -22,7 +23,7 @@ export function PlayerSetup({ childId, go }: { childId: string; go: (r: Route) =
   }, [childId])
 
   const save = async () => {
-    await db.children.update(childId, { player: { name: name.trim() || 'Spieler', number, color } })
+    await setPlayer(childId, { name: name.trim() || 'Spieler', number, color })
     go({ name: 'home', childId })
   }
 
