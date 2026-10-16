@@ -35,7 +35,9 @@ Deno.serve(async (req) => {
   if (req.headers.get('x-cron-secret') !== cfg.cron_secret) return json({ error: 'nicht erlaubt' }, 401)
 
   webpush.setVapidDetails('mailto:noreply@vokabel-app.local', cfg.public_key, cfg.private_key)
-  const hour = Number(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23' }).format(new Date()))
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).find((p) => p.type === 'hour')?.value,
+  )
   const { data: due, error } = await db.rpc('reminders_due', { p_hour: hour })
   if (error) return json({ error: error.message }, 500)
 
