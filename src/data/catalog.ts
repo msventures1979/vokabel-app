@@ -4,6 +4,7 @@ import { db } from './db'
 import { unit1, unit1Words } from './en-unit1'
 import { isStarterList, starterLists, starterWords } from './starter'
 import type { Word, WordList } from '../logic/types'
+import { today } from '../logic/dates'
 
 const CATALOG: Array<{ list: WordList; words: Word[] }> = [
   { list: unit1, words: unit1Words },
@@ -16,7 +17,7 @@ export const MARLON_DEFAULTS = { mode: 'picture' as const, minMinutes: 10, minAn
 export async function ensureCatalog(): Promise<boolean> {
   const stamp = Date.now()
   let changed = false
-  await db.transaction('rw', db.lists, db.words, db.children, db.assignments, async () => {
+  await db.transaction('rw', db.lists, db.words, db.children, db.assignments, db.goals, async () => {
     for (const { list, words } of CATALOG) {
       if (await db.lists.get(list.id)) continue
       await db.lists.put({ ...list, dirty: stamp })
@@ -32,6 +33,12 @@ export async function ensureCatalog(): Promise<boolean> {
         await db.children.put({ ...marlon, newPerDay: 3, settings: { ...marlon.settings, ...MARLON_DEFAULTS }, dirty: stamp })
         changed = true
       }
+    }
+
+    // Marlon: Belohnung Trainingsjacke nach 25 Trainingstagen, falls noch kein Ziel angelegt ist
+    if (marlon && (await db.goals.where('childId').equals('marlon').count()) === 0) {
+      await db.goals.add({ id: crypto.randomUUID(), childId: 'marlon', title: 'Trainingsjacke', requiredDays: 25, startDate: today(), status: 'active', dirty: stamp })
+      changed = true
     }
 
     // Kinder mit Startwortschatz bekommen neue Start-Listen automatisch dazu

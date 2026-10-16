@@ -54,3 +54,22 @@ describe('Datenbank-Upgrade von Version 1', () => {
     db.close()
   })
 })
+
+describe('Eingebaute Inhalte', () => {
+  it('Marlon bekommt Bilder-Modus, Startlisten und Ziel Trainingsjacke', async () => {
+    const { db, seedFamilyData } = await import('../data/db')
+    const { ensureCatalog } = await import('../data/catalog')
+    await db.delete()
+    await db.open()
+    await seedFamilyData()
+    expect(await ensureCatalog()).toBe(true)
+    const m = await db.children.get('marlon')
+    expect(m?.settings?.mode).toBe('picture')
+    expect(await db.assignments.where('childId').equals('marlon').count()).toBe(12)
+    const goals = await db.goals.where('childId').equals('marlon').toArray()
+    expect(goals).toHaveLength(1)
+    expect(goals[0]).toMatchObject({ title: 'Trainingsjacke', requiredDays: 25 })
+    // Zweiter Lauf ändert nichts
+    expect(await ensureCatalog()).toBe(false)
+  })
+})
