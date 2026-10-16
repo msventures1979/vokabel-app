@@ -4,6 +4,7 @@ import { db } from '../data/db'
 import { activeGoal, albumStats, markCardsSeen, plan, seenCards, totalStars, trainingDates } from '../data/repo'
 import { CARDS, nextCard, unlockedIds } from '../logic/album'
 import { speak } from '../lib/speech'
+import { play, praise, setSoundOn, soundOn } from '../lib/sounds'
 import { Confetti, PlayerCard } from '../ui/components'
 import { ReminderCard } from './Reminder'
 import { SyncBadge } from '../ui/SyncBadge'
@@ -178,10 +179,12 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         </Card>
       )}
       <ReminderCard childId={childId} />
+      <SoundToggle />
 
       {newCard && (
         <div className="fixed inset-0 z-40 bg-black/70 grid place-items-center p-6">
           <Confetti />
+          <SoundOnce key={newCard.id} childId={childId} />
           <div className="text-center space-y-4 animate-pop">
             <div className="font-display text-4xl font-extrabold uppercase text-lime">Neue Karte!</div>
             <div className="mx-auto w-56">
@@ -199,5 +202,41 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         </div>
       )}
     </div>
+  )
+}
+
+function SoundOnce({ childId }: { childId: string }) {
+  useEffect(() => {
+    play('card')
+    praise('card', childId, 700)
+  }, [childId])
+  return null
+}
+
+// Töne an/aus (gilt für dieses Gerät)
+function SoundToggle() {
+  const [on, setOn] = useState(soundOn())
+  return (
+    <Card className="flex items-center gap-4">
+      <div className="text-3xl" aria-hidden>
+        {on ? '🔊' : '🔇'}
+      </div>
+      <div className="flex-1">
+        <div className="font-display text-xl font-extrabold uppercase">Töne</div>
+        <div className="text-sm text-chalk/70">{on ? 'Jubel, Applaus und Pfiffe sind an.' : 'Spielgeräusche sind aus. Die Aussprache bleibt an.'}</div>
+      </div>
+      <Btn
+        size="sm"
+        variant="ghost"
+        className="w-auto px-5"
+        onClick={() => {
+          setSoundOn(!on)
+          setOn(!on)
+          if (!on) setTimeout(() => play('correct'), 50)
+        }}
+      >
+        {on ? 'Aus' : 'An'}
+      </Btn>
+    </Card>
   )
 }

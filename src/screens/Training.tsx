@@ -16,6 +16,7 @@ import { checkAnswer, mainAnswer, type Verdict } from '../logic/answers'
 import { DEFAULT_RULES, STARS, type DayRules } from '../logic/rewards'
 import { useActivityClock } from '../lib/useActivityClock'
 import { speak } from '../lib/speech'
+import { play, praise } from '../lib/sounds'
 import { Btn, Card, Confetti, SpeakerIcon, Star, TopBar, WordImage } from '../ui/components'
 import { db } from '../data/db'
 import { childRules } from '../data/repo'
@@ -137,7 +138,7 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
     busy.current = false
   }
 
-  if (done) return <Summary done={done} earned={earned} onHome={() => go({ name: 'home', childId })} onMore={() => go({ name: 'train', childId, kind: 'extra' })} />
+  if (done) return <Summary childId={childId} done={done} earned={earned} onHome={() => go({ name: 'home', childId })} onMore={() => go({ name: 'train', childId, kind: 'extra' })} />
   if (!pool || !step || !word) {
     return (
       <div>
@@ -544,7 +545,10 @@ function FeedbackSheet({ fb, onNext }: { fb: Feedback; onNext: () => void }) {
   const btn = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     btn.current?.focus()
-    if (fb.verdict !== 'correct') speak(fb.word.en)
+    play(fb.verdict === 'correct' ? 'correct' : fb.verdict === 'wrong' ? 'wrong' : 'almost')
+    if (fb.verdict === 'correct') return
+    const t = setTimeout(() => speak(fb.word.en), 550)
+    return () => clearTimeout(t)
   }, [fb])
   const look = {
     correct: { title: ['Treffer!', 'Tor!', 'Klasse!', 'Volltreffer!'][Math.floor(Math.random() * 4)], cls: 'bg-lime text-pitch' },
@@ -591,11 +595,13 @@ function FeedbackSheet({ fb, onNext }: { fb: Feedback; onNext: () => void }) {
 }
 
 function Summary({
+  childId,
   done,
   earned,
   onHome,
   onMore,
 }: {
+  childId: string
   done: { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean; rules: DayRules }
   earned: number
   onHome: () => void
@@ -603,6 +609,11 @@ function Summary({
 }) {
   const { after, before, perfect, isRound, rules } = done
   const newTrainingDay = after.trainingDay && !before.trainingDay
+  useEffect(() => {
+    play(newTrainingDay ? 'trainingDay' : 'round')
+    if (newTrainingDay) praise('day', childId, 1300)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const minutes = Math.floor(after.activeSeconds / 60)
   const missingMin = Math.max(0, Math.ceil((rules.minSeconds - after.activeSeconds) / 60))
   const missingAns = Math.max(0, rules.minAnswers - after.answers)

@@ -29,6 +29,14 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         importScripts: ['push-sw.js'],
+        // Sprachaufnahmen beim ersten Abspielen speichern, danach auch offline
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/audio/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'audio', expiration: { maxEntries: 2000 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+        ],
       },
     }),
   ],
