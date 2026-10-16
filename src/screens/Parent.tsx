@@ -5,6 +5,7 @@ import { db, sortChildren } from '../data/db'
 import {
   activeGoal,
   checkParentPin,
+  clearParentPin,
   confirmHandover,
   dayLog,
   exportAll,
@@ -24,7 +25,8 @@ import { goalProgress, streak } from '../logic/rewards'
 import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
-import { useSyncState } from '../sync/account'
+import { signInParent, useSyncState } from '../sync/account'
+import { AccountForm } from './Welcome'
 
 export function Parent({ go }: { go: (r: Route) => void }) {
   const [unlocked, setUnlocked] = useState(false)
@@ -48,10 +50,12 @@ function PinGate({ onBack, onOk }: { onBack: () => void; onOk: () => void }) {
   const [pin, setPin] = useState('')
   const [first, setFirst] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
+  const [forgot, setForgot] = useState(false)
 
   useEffect(() => {
     hasParentPin().then(setHasPin)
   }, [])
+
 
   useEffect(() => {
     if (pin.length !== 4 || hasPin === null) return
@@ -77,6 +81,20 @@ function PinGate({ onBack, onOk }: { onBack: () => void; onOk: () => void }) {
     })()
   }, [pin, hasPin, first, onOk])
 
+  if (forgot)
+    return (
+      <ForgotPin
+        onBack={() => setForgot(false)}
+        onReset={async () => {
+          await clearParentPin()
+          setForgot(false)
+          setFirst(null)
+          setPin('')
+          setMsg('Neue PIN festlegen')
+          setHasPin(false)
+        }}
+      />
+    )
   if (hasPin === null) return null
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
   return (
@@ -107,6 +125,74 @@ function PinGate({ onBack, onOk }: { onBack: () => void; onOk: () => void }) {
           ),
         )}
       </div>
+      {hasPin && (
+        <button onClick={() => setForgot(true)} className="block mx-auto mt-8 text-sm text-chalk/60 underline underline-offset-4">
+          PIN vergessen?
+        </button>
+      )}
+    </div>
+  )
+}
+
+// PIN zurücksetzen nur mit Eltern-Konto (E-Mail und Passwort)
+function ForgotPin({ onBack, onReset }: { onBack: () => void; onReset: () => void }) {
+  const sync = useSyncState()
+  const [startedSignedIn] = useState(sync.signedIn && !sync.anonymous)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  // Neu angemeldet: Anmeldung gilt als Bestätigung
+  useEffect(() => {
+    if (!startedSignedIn && sync.signedIn && !sync.anonymous) onReset()
+  }, [startedSignedIn, sync.signedIn, sync.anonymous, onReset])
+
+  return (
+    <div>
+      <TopBar onBack={onBack} title="PIN vergessen" />
+      <Card className="mt-2 space-y-3">
+        {!sync.configured ? (
+          <p className="text-sm">Ohne Abgleich lässt sich die PIN nicht zurücksetzen.</p>
+        ) : startedSignedIn ? (
+          <form
+            className="space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setBusy(true)
+              setErr('')
+              try {
+                await signInParent(sync.email!, password)
+                onReset()
+              } catch (x) {
+                setErr((x as Error).message)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <p className="text-sm text-chalk/75">Gib das Passwort deines Eltern-Kontos ({sync.email}) ein. Danach legst du eine neue PIN fest.</p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              placeholder="Passwort"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl bg-black/25 ring-1 ring-white/20 px-3 py-3 outline-none focus:ring-lime"
+            />
+            <Btn size="md" className="w-full" type="submit" disabled={!password || busy}>
+              {busy ? 'Bitte warten …' : 'Bestätigen'}
+            </Btn>
+            {err && <p className="text-flag text-sm">{err}</p>}
+          </form>
+        ) : (
+          <>
+            <p className="text-sm text-chalk/75">
+              Melde dich mit deinem Eltern-Konto an oder erstelle eins. Danach legst du eine neue PIN fest, und der Lernstand wird ab dann auf allen Geräten abgeglichen.
+            </p>
+            <AccountForm />
+          </>
+        )}
+      </Card>
     </div>
   )
 }

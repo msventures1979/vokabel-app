@@ -254,6 +254,9 @@ export async function hasParentPin() {
 export async function setParentPin(pin: string) {
   await setMeta('parentPin', await sha(pin))
 }
+export async function clearParentPin() {
+  await db.meta.delete('parentPin')
+}
 export async function checkParentPin(pin: string) {
   return (await getMeta('parentPin')) === (await sha(pin))
 }
