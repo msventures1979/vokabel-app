@@ -43,15 +43,17 @@ export function ReminderCard({ childId }: { childId: string }) {
           </div>
         </div>
       </div>
+      <div className="text-xs text-chalk/60 -mb-1">Um wie viel Uhr?</div>
       <div className="flex gap-1.5">
         {HOURS.map((h) => (
           <button
             key={h}
             disabled={busy}
             onClick={() => (state.enabled ? run(() => setReminderHour(h)) : setState({ ...state, hour: h }))}
-            className={`flex-1 rounded-lg py-1.5 text-sm font-semibold ${state.hour === h ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
+            className={`flex-1 rounded-lg py-1.5 text-sm font-semibold leading-tight ${state.hour === h ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
           >
             {h}
+            <span className="block text-[10px] font-normal opacity-70">Uhr</span>
           </button>
         ))}
       </div>

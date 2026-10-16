@@ -62,6 +62,33 @@ export function goalProgress(goal: Goal, trainingDates: Set<DateStr>): number {
   return Math.min(n, goal.requiredDays)
 }
 
+// Saisons (nur virtuelle Belohnungen): alle `requiredDays` Trainingstage gewinnt das Kind einen Pokal für die Vitrine,
+// danach beginnt automatisch die nächste Saison. Keine Übergabe durch die Eltern nötig.
+export const SEASON_TROPHIES = [
+  { name: 'Meisterschale', icon: '🛡️' },
+  { name: 'Goldener Pokal', icon: '🏆' },
+  { name: 'Supercup', icon: '🥇' },
+  { name: 'Champions-Pokal', icon: '🏆' },
+  { name: 'Weltpokal', icon: '🌍' },
+  { name: 'Goldener Schuh', icon: '👟' },
+] as const
+
+export function seasonFor(goal: Pick<Goal, 'startDate' | 'requiredDays'>, trainingDates: Set<DateStr>) {
+  const len = Math.max(1, goal.requiredDays)
+  let n = 0
+  for (const d of trainingDates) if (d >= goal.startDate) n++
+  const won = Math.floor(n / len)
+  return {
+    season: won + 1,
+    won,
+    progress: n % len,
+    length: len,
+    trophy: SEASON_TROPHIES[won % SEASON_TROPHIES.length],
+  }
+}
+
+export const seasonTrophy = (i: number) => SEASON_TROPHIES[i % SEASON_TROPHIES.length]
+
 // Aufstieg nur mit Sternen UND Trainingstagen (ein sehr langer Tag reicht nicht für den nächsten Aufstieg).
 // Wer vor RULES_SINCE schon höher war (alte Regel: nur Sterne), behält seine Liga.
 export const LEVELS = [

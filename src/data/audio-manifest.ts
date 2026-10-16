@@ -1,4 +1,4 @@
-// Automatisch erzeugt (scripts/audio-bestof.py) – Schlüssel der geprüften Sprachaufnahmen in public/audio
+// Automatisch erzeugt (scripts/make-audio.py) – Schlüssel der vorhandenen Sprachaufnahmen in public/audio
 export const AUDIO = new Set<string>([
   '011decbc',
   '01beaedc',

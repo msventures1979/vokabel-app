@@ -35,9 +35,16 @@ export async function ensureCatalog(): Promise<boolean> {
       }
     }
 
-    // Marlon: Belohnung Trainingsjacke nach 25 Trainingstagen, falls noch kein Ziel angelegt ist
+    // Marlon: Saisons mit 25 Trainingstagen, falls noch keine angelegt sind
     if (marlon && (await db.goals.where('childId').equals('marlon').count()) === 0) {
-      await db.goals.add({ id: crypto.randomUUID(), childId: 'marlon', title: 'Trainingsjacke', requiredDays: 25, startDate: today(), status: 'active', dirty: stamp })
+      await db.goals.add({ id: crypto.randomUUID(), childId: 'marlon', title: 'Saisonpokal', requiredDays: 25, startDate: today(), status: 'active', dirty: stamp })
+      changed = true
+    }
+
+    // Nur virtuelle Belohnungen: frühere echte Ziele (Titel, Fotos) in Saisons umwandeln
+    for (const g of await db.goals.toArray()) {
+      if (g.title === 'Saisonpokal' && !g.image) continue
+      await db.goals.put({ ...g, title: 'Saisonpokal', image: undefined, dirty: stamp })
       changed = true
     }
 

@@ -3,7 +3,7 @@ import { db, deviceId, getMeta, setMeta } from './db'
 import type { Child, DayLog, DayLogRow, Goal, Player, Progress, Word, WordList } from '../logic/types'
 import { today, type DateStr } from '../logic/dates'
 import { introduce, isDue, newProgress, review } from '../logic/scheduler'
-import { DEFAULT_RULES, goalProgress, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
+import { DEFAULT_RULES, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
 import { syncSoon } from '../sync/signal'
 import { bestStreak, RULES_SINCE, type AlbumStats } from '../logic/album'
 
@@ -191,38 +191,22 @@ export async function introduceWords(childId: string, wordIds: string[]) {
 
 // ---------- Ziele ----------
 
-// Aktuelles Ziel mit berechnetem Status ('reached', sobald genug Trainingstage gesammelt sind)
+// Aktuelle Saison-Einstellung (Startdatum und Trainingstage pro Saison)
 export async function activeGoal(childId: string): Promise<Goal | undefined> {
   const goals = (await db.goals.where('childId').equals(childId).toArray()).filter((g) => g.status !== 'handedOver')
   goals.sort((a, b) => b.startDate.localeCompare(a.startDate))
-  const g = goals[0]
-  if (!g) return undefined
-  const done = goalProgress(g, await trainingDates(childId)) >= g.requiredDays
-  return done ? { ...g, status: 'reached' } : { ...g, status: 'active' }
+  return goals[0]
 }
 
-export async function setGoal(childId: string, title: string, requiredDays: number) {
+// Trainingstage pro Saison ändern (oder Saisons starten, falls noch keine angelegt sind)
+export async function setSeasonLength(childId: string, requiredDays: number) {
   const current = await activeGoal(childId)
-  if (current) {
-    const stored = await db.goals.get(current.id)
-    await db.goals.put({ ...stored!, title, requiredDays, dirty: now() })
-  } else {
-    await db.goals.add({ id: crypto.randomUUID(), childId, title, requiredDays, startDate: today(), status: 'active', dirty: now() })
-  }
+  if (current) await db.goals.put({ ...current, requiredDays, dirty: now() })
+  else await db.goals.add({ id: crypto.randomUUID(), childId, title: SEASON_TITLE, requiredDays, startDate: today(), status: 'active', dirty: now() })
   syncSoon()
 }
 
-export async function setGoalImage(goalId: string, image: string | undefined) {
-  const g = await db.goals.get(goalId)
-  if (g) await db.goals.put({ ...g, image, dirty: now() })
-  syncSoon()
-}
-
-export async function confirmHandover(goalId: string) {
-  const g = await db.goals.get(goalId)
-  if (g) await db.goals.put({ ...g, status: 'handedOver', handedOverOn: today(), dirty: now() })
-  syncSoon()
-}
+export const SEASON_TITLE = 'Saisonpokal'
 
 // ---------- Kinder, Listen ----------
 

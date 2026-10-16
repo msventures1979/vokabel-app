@@ -56,7 +56,7 @@ describe('Datenbank-Upgrade von Version 1', () => {
 })
 
 describe('Eingebaute Inhalte', () => {
-  it('Marlon bekommt Bilder-Modus, Startlisten und Ziel Trainingsjacke', async () => {
+  it('Marlon bekommt Bilder-Modus, Startlisten und Saisons', async () => {
     const { db, seedFamilyData } = await import('../data/db')
     const { ensureCatalog } = await import('../data/catalog')
     await db.delete()
@@ -68,7 +68,11 @@ describe('Eingebaute Inhalte', () => {
     expect(await db.assignments.where('childId').equals('marlon').count()).toBe(12)
     const goals = await db.goals.where('childId').equals('marlon').toArray()
     expect(goals).toHaveLength(1)
-    expect(goals[0]).toMatchObject({ title: 'Trainingsjacke', requiredDays: 25 })
+    expect(goals[0]).toMatchObject({ title: 'Saisonpokal', requiredDays: 25 })
+    // frühere echte Ziele werden zu virtuellen Saisons, Fotos werden entfernt
+    await db.goals.put({ id: 'alt', childId: 'milan', title: 'Fußball', requiredDays: 25, startDate: '2026-10-16', status: 'active', image: 'data:image/webp;base64,xx' })
+    expect(await ensureCatalog()).toBe(true)
+    expect(await db.goals.get('alt')).toMatchObject({ title: 'Saisonpokal', image: undefined })
     // Zweiter Lauf ändert nichts
     expect(await ensureCatalog()).toBe(false)
   })

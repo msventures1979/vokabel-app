@@ -6,15 +6,13 @@ import {
   activeGoal,
   checkParentPin,
   clearParentPin,
-  confirmHandover,
   dayLog,
   exportAll,
   hasParentPin,
   importList,
-  setGoalImage,
+  setSeasonLength,
   restoreAll,
   setAssignment,
-  setGoal,
   setNewPerDay,
   updateChildSettings,
   setParentPin,
@@ -23,12 +21,11 @@ import {
   wordPool,
 } from '../data/repo'
 import { today } from '../logic/dates'
-import { goalProgress, rulesFor, streak } from '../logic/rewards'
+import { rulesFor, seasonFor, streak } from '../logic/rewards'
 import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
 import { PhotoImport } from './PhotoImport'
-import { prizeImage } from '../lib/image'
 import { signInParent, useSyncState } from '../sync/account'
 import { AccountForm } from './Welcome'
 
@@ -251,7 +248,6 @@ function ChildPanel({ childId }: { childId: string }) {
     ])
     return { child, pool, prog, log, dates, goal, lists, assigns, stars }
   }, [childId])
-  const [goalTitle, setGoalTitle] = useState<string | null>(null)
   const [goalDays, setGoalDays] = useState<number | null>(null)
   const [saved, setSaved] = useState('')
 
@@ -262,8 +258,7 @@ function ChildPanel({ childId }: { childId: string }) {
   const boxes = [0, 1, 2, 3, 4, 5, LEARNED_BOX].map((b) => pool.filter((w) => (progById.get(w.id)?.box ?? 0) === b).length)
   const hard = [...prog].filter((p) => p.errors > 0).sort((a, b) => b.errors - a.errors).slice(0, 5)
   const wordById = new Map(pool.map((w) => [w.id, w]))
-  const gp = goal ? goalProgress(goal, dates) : 0
-  const title = goalTitle ?? goal?.title ?? 'Fußball'
+  const season = goal ? seasonFor(goal, dates) : undefined
   const days = goalDays ?? goal?.requiredDays ?? 25
   const flash = (t: string) => {
     setSaved(t)
@@ -312,54 +307,39 @@ function ChildPanel({ childId }: { childId: string }) {
       </Card>
 
       <Card className="space-y-3">
-        <div className="font-display text-xl font-extrabold uppercase">Belohnungsziel</div>
-        {goal && (
+        <div className="font-display text-xl font-extrabold uppercase">Saison und Pokale</div>
+        <p className="text-sm text-chalk/75">
+          Nur virtuelle Belohnungen: Nach jeder Saison bekommt {child.name} einen Pokal für die Vitrine in der App. Danach beginnt automatisch die nächste Saison.
+        </p>
+        {season && (
           <p className="text-sm text-chalk/75">
-            Aktuell: {goal.title}, {gp} von {goal.requiredDays} Trainingstagen.
+            Aktuell: Saison {season.season} ({season.trophy.icon} {season.trophy.name}), {season.progress} von {season.length} Trainingstagen.
+            {season.won > 0 && ` Gewonnene Pokale: ${season.won}.`}
           </p>
         )}
-        {goal && goal.status !== 'handedOver' && <PrizePhoto goalId={goal.id} image={goal.image} onDone={flash} />}
-        {goal?.status === 'reached' && (
-          <div className="rounded-2xl bg-lime text-pitch p-3">
-            <div className="font-display text-xl font-extrabold uppercase">Ziel erreicht!</div>
-            <p className="text-sm">Übergib „{goal.title}“ und bestätige es hier. Danach legst du das nächste Ziel fest.</p>
-            <Btn variant="primary" size="md" className="mt-2 !bg-pitch !text-chalk !shadow-none" onClick={() => confirmHandover(goal.id)}>
-              Übergabe bestätigen
-            </Btn>
-          </div>
-        )}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-chalk/80 flex-1">Trainingstage pro Saison</span>
           <input
-            value={title}
-            onChange={(e) => setGoalTitle(e.target.value)}
-            className="flex-1 min-w-0 rounded-xl bg-black/25 ring-1 ring-white/20 px-3 py-2 outline-none focus:ring-lime"
-            aria-label="Belohnung"
+            type="number"
+            min={5}
+            max={120}
+            value={days}
+            onChange={(e) => setGoalDays(Number(e.target.value))}
+            className="w-20 rounded-xl bg-black/25 ring-1 ring-white/20 px-3 py-2 outline-none focus:ring-lime"
+            aria-label="Trainingstage pro Saison"
           />
-          <div className="flex items-center gap-2 shrink-0">
-            <input
-              type="number"
-              min={5}
-              max={120}
-              value={days}
-              onChange={(e) => setGoalDays(Number(e.target.value))}
-              className="w-16 rounded-xl bg-black/25 ring-1 ring-white/20 px-3 py-2 outline-none focus:ring-lime"
-              aria-label="Trainingstage"
-            />
-            <span className="text-sm text-chalk/70">Tage</span>
-          </div>
         </div>
         <Btn
           size="md"
           variant="chalk"
-          disabled={!title.trim() || !days || days < 1}
+          disabled={!days || days < 5 || days === goal?.requiredDays}
           onClick={async () => {
-            await setGoal(childId, title.trim(), Math.round(days))
-            setGoalTitle(null)
+            await setSeasonLength(childId, Math.round(days))
             setGoalDays(null)
-            flash('Ziel gespeichert')
+            flash('Gespeichert')
           }}
         >
-          {goal && goal.status !== 'handedOver' ? 'Ziel ändern' : 'Neues Ziel starten'}
+          {goal ? 'Speichern' : 'Saisons starten'}
         </Btn>
       </Card>
 
@@ -524,47 +504,6 @@ function DataPanel() {
         </label>
       </Card>
       {msg && <p className="text-center text-gold">{msg}</p>}
-    </div>
-  )
-}
-
-// Foto der echten Belohnung (wird den Kindern in der Kabine gezeigt)
-function PrizePhoto({ goalId, image, onDone }: { goalId: string; image?: string; onDone: (m: string) => void }) {
-  const [cutout, setCutout] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setBusy(true)
-    prizeImage(file, cutout)
-      .then((url) => setGoalImage(goalId, url))
-      .then(() => onDone('Foto gespeichert'))
-      .catch(() => onDone('Das Foto konnte nicht gelesen werden.'))
-      .finally(() => setBusy(false))
-  }
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-20 w-20 shrink-0 rounded-2xl bg-pitch-3/60 ring-1 ring-white/10 grid place-items-center overflow-hidden">
-        {image ? <img src={image} alt="" className="max-h-[88%] max-w-[88%] object-contain" /> : <span className="text-3xl opacity-60">🎁</span>}
-      </div>
-      <div className="flex-1 space-y-2">
-        <label className={`block text-center font-display font-extrabold uppercase rounded-2xl px-3 py-2 text-sm bg-white/5 ring-1 ring-white/20 ${busy ? 'opacity-40' : 'cursor-pointer'}`}>
-          {busy ? 'Wird vorbereitet …' : image ? 'Anderes Foto wählen' : 'Foto der Belohnung wählen'}
-          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={busy} />
-        </label>
-        <div className="flex items-center justify-between gap-2 text-xs text-chalk/70">
-          <label className="flex items-center gap-1.5">
-            <input type="checkbox" checked={cutout} onChange={(e) => setCutout(e.target.checked)} className="accent-lime" />
-            Weißen Hintergrund entfernen
-          </label>
-          {image && (
-            <button className="underline" onClick={() => setGoalImage(goalId, undefined)}>
-              Entfernen
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

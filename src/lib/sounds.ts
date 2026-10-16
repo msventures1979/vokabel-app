@@ -211,7 +211,7 @@ export function play(sound: Sound) {
 }
 
 // Englisches Lob mit Namen (vorab aufgenommen), z. B. "Milan, you are so smart!"
-const PRAISE = { card: 5, day: 3, club: 2 } as const
+const PRAISE = { card: 5, day: 3, club: 2, season: 2 } as const
 const NAMED = ['milan', 'marlon']
 let praiseAudio: HTMLAudioElement | null = null
 export function praise(kind: keyof typeof PRAISE, childId: string, delayMs = 0) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, isoWeekKey } from './dates'
 import { checkAnswer } from './answers'
 import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
-import { activeDelta, goalProgress, levelFor, levelHint, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
+import { activeDelta, goalProgress, levelFor, levelHint, seasonFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
 import { CARDS, CLUBS, clubCards, completedClubs, nextCard, ownedIds, type AlbumStats } from './album'
 import { buildExtraPractice, buildRound, choiceOptions } from './session'
 import { starterWords } from '../data/starter'
@@ -179,5 +179,16 @@ describe('Sammelalbum mit Vereinen', () => {
     expect(later).toHaveLength(11)
     expect(completedClubs(later)).toEqual(['k1'])
     expect(nextCard({ ...s, newTrainingDays: 2 })?.club).toBe('k2')
+  })
+})
+
+describe('Saisons (virtuelle Pokale)', () => {
+  const dates = (n: number) => new Set(Array.from({ length: n }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`))
+  it('nach 25 Trainingstagen gibt es einen Pokal, danach startet die nächste Saison', () => {
+    const g = { startDate: '2026-11-01', requiredDays: 25 }
+    expect(seasonFor(g, dates(24))).toMatchObject({ season: 1, won: 0, progress: 24 })
+    expect(seasonFor(g, dates(25))).toMatchObject({ season: 2, won: 1, progress: 0 })
+    expect(seasonFor(g, dates(27)).trophy.name).toBe('Goldener Pokal')
+    expect(seasonFor(g, new Set(['2026-10-31'])).progress).toBe(0) // Tage vor dem Saisonstart zählen nicht
   })
 })

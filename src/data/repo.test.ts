@@ -41,9 +41,9 @@ describe('Ablauf eines Tages', () => {
     expect((await dayLog('milan')).stars - before).toBe(5)
   })
 
-  it('Milan hat das Ziel Fußball mit 25 Tagen', async () => {
+  it('Milan hat Saisons mit 25 Tagen', async () => {
     const g = await activeGoal('milan')
-    expect(g?.title).toBe('Fußball')
+    expect(g?.title).toBe('Saisonpokal')
     expect(g?.requiredDays).toBe(25)
   })
 })

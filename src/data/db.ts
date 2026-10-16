@@ -128,6 +128,6 @@ export async function seedFamilyData() {
     await db.assignments.put({ id: `milan:${unit1.id}`, childId: 'milan', listId: unit1.id, active: true })
   }
   if ((await db.goals.where('childId').equals('milan').count()) === 0) {
-    await db.goals.add({ id: crypto.randomUUID(), childId: 'milan', title: 'Fußball', requiredDays: 25, startDate: today(), status: 'active' })
+    await db.goals.add({ id: crypto.randomUUID(), childId: 'milan', title: 'Saisonpokal', requiredDays: 25, startDate: today(), status: 'active' })
   }
 }
