@@ -13,10 +13,13 @@ import {
 import type { DayLog, Word } from '../logic/types'
 import { buildExtraPractice, buildRound, choiceOptions, newWordSteps, type Step } from '../logic/session'
 import { checkAnswer, mainAnswer, type Verdict } from '../logic/answers'
-import { MIN_ACTIVE_SECONDS, MIN_ANSWERS, STARS } from '../logic/rewards'
+import { DEFAULT_RULES, STARS, type DayRules } from '../logic/rewards'
 import { useActivityClock } from '../lib/useActivityClock'
 import { speak } from '../lib/speech'
-import { Btn, Card, Confetti, SpeakerIcon, Star, TopBar } from '../ui/components'
+import { Btn, Card, Confetti, SpeakerIcon, Star, TopBar, WordImage } from '../ui/components'
+import { db } from '../data/db'
+import { childRules } from '../data/repo'
+import type { Mode } from '../logic/session'
 
 export type TrainingKind = 'round' | 'extra'
 
@@ -35,12 +38,14 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [mistakes, setMistakes] = useState(0)
   const [earned, setEarned] = useState(0)
-  const [done, setDone] = useState<null | { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean }>(null)
+  const [done, setDone] = useState<null | { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean; rules: DayRules }>(null)
   const [quit, setQuit] = useState(false)
   const newIds = useRef<string[]>([])
   const requeued = useRef(new Set<string>())
   const before = useRef<DayLog | null>(null)
   const isRound = useRef(kind === 'round')
+  const mode = useRef<Mode>('write')
+  const rules = useRef<DayRules>(DEFAULT_RULES)
   const tick = useActivityClock()
 
   // Runde zusammenstellen
@@ -49,9 +54,12 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
     ;(async () => {
       const p = await plan(childId)
       before.current = await dayLog(childId)
+      mode.current = (await db.children.get(childId))?.settings?.mode ?? 'write'
+      rules.current = await childRules(childId)
+      const m = mode.current
       let steps: Step[] = []
       if (kind === 'round' && !p.log.roundDone) {
-        steps = buildRound(p.dueIds, p.newIds)
+        steps = buildRound(p.dueIds, p.newIds, Math.random, m)
         newIds.current = p.newIds
         if (steps.length === 0) {
           // Nichts fällig, keine neuen Wörter: Runde gilt als erledigt, weiter mit freiem Training
@@ -61,12 +69,12 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
       }
       if (steps.length === 0) {
         isRound.current = false
-        const extraNew = Math.min(5, p.extraNewAllowed)
+        const extraNew = Math.min(m === 'picture' ? 3 : 5, p.extraNewAllowed)
         if (extraNew > 0) {
           newIds.current = await freshWordIds(childId, extraNew)
-          steps = newWordSteps(newIds.current)
+          steps = newWordSteps(newIds.current, Math.random, m)
         } else {
-          steps = buildExtraPractice(p.knownIds)
+          steps = buildExtraPractice(p.knownIds, 12, Math.random, m)
         }
       }
       if (!cancelled) {
@@ -88,7 +96,7 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
     const perfect = mistakes === 0
     if (isRound.current) await completeRound(childId, perfect)
     const after = await dayLog(childId)
-    setDone({ before: before.current!, after, perfect, isRound: isRound.current })
+    setDone({ before: before.current!, after, perfect, isRound: isRound.current, rules: rules.current })
   }
 
   const next = () => {
@@ -114,7 +122,12 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
     if (verdict !== 'correct') {
       setMistakes((m) => m + 1)
       // Einmal nachholen, als Übung ohne Fachwechsel
-      const retry: Step = step.phase === 'review' ? { kind: 'choice', wordId: word.id, dir: 'de-en', phase: 'practice' } : { ...step }
+      const retry: Step =
+        step.phase === 'review'
+          ? mode.current === 'picture'
+            ? { kind: 'listen', wordId: word.id, phase: 'practice' }
+            : { kind: 'choice', wordId: word.id, dir: 'de-en', phase: 'practice' }
+          : { ...step }
       if (!requeued.current.has(stepKey(retry))) {
         requeued.current.add(stepKey(retry))
         setQueue((q) => [...q, retry])
@@ -166,6 +179,9 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
         )}
         {step.kind === 'type' && <TypeStep word={word} locked={!!feedback} onAnswer={(v) => answer(v, STARS.typed)} />}
         {step.kind === 'flash' && <FlashStep word={word} locked={!!feedback} onAnswer={(ok) => answer(ok ? 'correct' : 'wrong', STARS.flashcard)} />}
+        {step.kind === 'listen' && <ListenStep word={word} pool={pool} locked={!!feedback} onAnswer={(ok) => answer(ok ? 'correct' : 'wrong', STARS.choice)} />}
+        {step.kind === 'picture' && <PictureStep word={word} pool={pool} locked={!!feedback} onAnswer={(ok) => answer(ok ? 'correct' : 'wrong', STARS.choice)} />}
+        {step.kind === 'say' && <SayStep word={word} locked={!!feedback} onAnswer={(ok) => answer(ok ? 'correct' : 'wrong', STARS.choice)} />}
       </div>
 
       {feedback && <FeedbackSheet fb={feedback} onNext={next} />}
@@ -220,6 +236,11 @@ function IntroCard({ word, onNext }: { word: Word; onNext: () => void }) {
   return (
     <div className="space-y-4 animate-rise">
       <div className="rounded-3xl text-center py-8 px-4 bg-chalk text-pitch">
+        {word.image && (
+          <button onClick={() => speak(word.en)} className="mx-auto block mb-3" aria-label="Vorlesen">
+            <WordImage image={word.image} size={120} />
+          </button>
+        )}
         <div className="text-sm uppercase tracking-widest text-pitch/60">Englisch</div>
         <div className="font-display text-5xl font-extrabold mt-1 break-words">{word.en}</div>
         {word.ipa && <div className="text-pitch/60 mt-1">[{word.ipa}]</div>}
@@ -397,6 +418,128 @@ function FlashStep({ word, locked, onAnswer }: { word: Word; locked: boolean; on
   )
 }
 
+// Auswahl aus demselben Thema (z. B. nur Farben), damit Anfänger nicht mit fremden Wörtern überhäuft werden
+const themePool = (word: Word, pool: Word[]) => {
+  const same = pool.filter((w) => w.listId === word.listId)
+  return same.length >= 4 ? same : pool
+}
+
+// Bilder-Modus: Wort hören, passendes Bild antippen
+function ListenStep({ word, pool, locked, onAnswer }: { word: Word; pool: Word[]; locked: boolean; onAnswer: (ok: boolean) => void }) {
+  const options = useMemo(() => choiceOptions(word, themePool(word, pool), 'image'), [word, pool])
+  const [picked, setPicked] = useState<string | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => speak(word.en), 250)
+    return () => clearTimeout(t)
+  }, [word])
+  return (
+    <div className="space-y-5 animate-rise">
+      <div className="text-center">
+        <div className="text-sm uppercase tracking-widest text-chalk/60">Hör genau hin! Was ist das?</div>
+        <button
+          onClick={() => speak(word.en)}
+          className="mt-4 mx-auto h-24 w-24 grid place-items-center rounded-full bg-chalk text-pitch shadow-lg active:scale-95"
+          aria-label="Nochmal anhören"
+        >
+          <SpeakerIcon size={44} />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {options.map((o) => {
+          const state =
+            picked === null ? 'bg-chalk' : o === word.image ? 'bg-lime ring-4 ring-lime' : o === picked ? 'bg-flag animate-shake' : 'bg-chalk opacity-30'
+          return (
+            <button
+              key={o}
+              disabled={locked}
+              onClick={() => {
+                setPicked(o)
+                onAnswer(o === word.image)
+              }}
+              className={`aspect-square rounded-3xl grid place-items-center transition active:scale-95 ${state}`}
+            >
+              <WordImage image={o} size={96} />
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Bilder-Modus: Bild sehen, englisches Wort antippen (Wörter werden beim Antippen nicht vorgelesen, sonst wäre es zu leicht)
+function PictureStep({ word, pool, locked, onAnswer }: { word: Word; pool: Word[]; locked: boolean; onAnswer: (ok: boolean) => void }) {
+  const options = useMemo(() => choiceOptions(word, themePool(word, pool), 'de-en'), [word, pool])
+  const [picked, setPicked] = useState<string | null>(null)
+  const correct = mainAnswer(word)
+  return (
+    <div className="space-y-5 animate-rise">
+      <div className="text-center">
+        <div className="text-sm uppercase tracking-widest text-chalk/60">Wie heißt das auf Englisch?</div>
+        <div className="mt-3 mx-auto w-fit rounded-3xl bg-chalk p-5">
+          <WordImage image={word.image ?? '❓'} size={120} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {options.map((o) => {
+          const state =
+            picked === null ? 'bg-pitch-2 ring-1 ring-white/15' : o === correct ? 'bg-lime text-pitch' : o === picked ? 'bg-flag text-white animate-shake' : 'bg-pitch-2 opacity-40'
+          return (
+            <button
+              key={o}
+              disabled={locked}
+              onClick={() => {
+                setPicked(o)
+                onAnswer(o === correct)
+              }}
+              className={`rounded-2xl px-3 py-5 font-display text-3xl font-extrabold transition active:scale-95 ${state}`}
+            >
+              {o}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Bilder-Modus: laut sagen, dann aufdecken und selbst bewerten
+function SayStep({ word, locked, onAnswer }: { word: Word; locked: boolean; onAnswer: (ok: boolean) => void }) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="space-y-5 animate-rise text-center">
+      <div className="text-sm uppercase tracking-widest text-chalk/60">Sag es laut auf Englisch!</div>
+      <div className="mx-auto w-fit rounded-3xl bg-chalk p-6">
+        <WordImage image={word.image ?? '❓'} size={140} />
+      </div>
+      {shown ? (
+        <div className="animate-pop space-y-4">
+          <div className="font-display text-5xl font-extrabold">{word.en}</div>
+          <div className="grid grid-cols-2 gap-3">
+            <Btn variant="ghost" size="md" disabled={locked} onClick={() => onAnswer(false)}>
+              Nochmal üben
+            </Btn>
+            <Btn size="md" disabled={locked} onClick={() => onAnswer(true)}>
+              Gewusst!
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <Btn
+          variant="chalk"
+          className="w-full"
+          onClick={() => {
+            setShown(true)
+            speak(word.en)
+          }}
+        >
+          Aufdecken
+        </Btn>
+      )}
+    </div>
+  )
+}
+
 function FeedbackSheet({ fb, onNext }: { fb: Feedback; onNext: () => void }) {
   const btn = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -424,6 +567,7 @@ function FeedbackSheet({ fb, onNext }: { fb: Feedback; onNext: () => void }) {
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <div className="text-sm opacity-75">Richtig ist:</div>
+              {fb.word.image && <WordImage image={fb.word.image} size={48} />}
               <div className="font-display text-3xl font-extrabold">
                 {mainAnswer(fb.word)} <span className="opacity-70 text-xl">= {fb.word.de}</span>
               </div>
@@ -452,16 +596,16 @@ function Summary({
   onHome,
   onMore,
 }: {
-  done: { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean }
+  done: { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean; rules: DayRules }
   earned: number
   onHome: () => void
   onMore: () => void
 }) {
-  const { after, before, perfect, isRound } = done
+  const { after, before, perfect, isRound, rules } = done
   const newTrainingDay = after.trainingDay && !before.trainingDay
   const minutes = Math.floor(after.activeSeconds / 60)
-  const missingMin = Math.max(0, Math.ceil((MIN_ACTIVE_SECONDS - after.activeSeconds) / 60))
-  const missingAns = Math.max(0, MIN_ANSWERS - after.answers)
+  const missingMin = Math.max(0, Math.ceil((rules.minSeconds - after.activeSeconds) / 60))
+  const missingAns = Math.max(0, rules.minAnswers - after.answers)
   return (
     <div className="pt-8 space-y-5 text-center">
       {(perfect || newTrainingDay) && <Confetti />}

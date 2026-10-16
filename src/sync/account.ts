@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 import { SUPABASE_KEY, SUPABASE_URL, SYNC_CONFIGURED } from '../config'
 import { adoptDeviceId, db, getMeta, seedFamilyData, setMeta } from '../data/db'
+import { ensureCatalog } from '../data/catalog'
 import type { DayLogRow, Progress } from '../logic/types'
 import { pull, push, resetPullMarkers, type SyncContext } from './engine'
 import { PARENT_TABLES } from './mapping'
@@ -111,6 +112,8 @@ export function syncNow(): Promise<void> {
       const ctx: SyncContext = { client: supa(), familyId: state.familyId, role: state.role }
       await push(ctx)
       await pull(ctx)
+      // Eltern-Gerät: neue eingebaute Wortlisten ergänzen und hochladen
+      if (ctx.role === 'parent' && (await ensureCatalog())) await push(ctx)
       setState({ status: 'idle', lastSync: Date.now(), error: undefined })
     } catch (e) {
       const msg = fehler(e)
@@ -171,6 +174,7 @@ export async function createFamily(name = 'Familie Storch') {
     if (error) throw error
     const familyId = data as string
     await seedFamilyData()
+    await ensureCatalog()
     const stamp = Date.now()
     await db.transaction('rw', db.tables, async () => {
       for (const t of [...PARENT_TABLES, 'progress', 'dayLogs'] as const) {

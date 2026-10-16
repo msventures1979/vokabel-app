@@ -3,7 +3,8 @@ import { addDays, isoWeekKey } from './dates'
 import { checkAnswer } from './answers'
 import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
 import { activeDelta, goalProgress, levelFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
-import { buildRound, choiceOptions } from './session'
+import { buildExtraPractice, buildRound, choiceOptions } from './session'
+import { starterWords } from '../data/starter'
 import { unit1Words } from '../data/en-unit1'
 import type { Goal, Progress } from './types'
 
@@ -105,6 +106,22 @@ describe('Runde', () => {
     const opts = choiceOptions(w('busy'), unit1Words, 'en-de')
     expect(new Set(opts).size).toBe(4)
     expect(opts).toContain(w('busy').de)
+  })
+  it('Bilder-Modus: keine Schreibaufgaben', () => {
+    const steps = [...buildRound(['a', 'b'], ['x', 'y', 'z'], Math.random, 'picture'), ...buildExtraPractice(['a', 'b'], 20, Math.random, 'picture')]
+    expect(steps.some((s) => s.kind === 'type' || s.kind === 'choice')).toBe(false)
+    expect(steps.filter((s) => s.kind === 'intro')).toHaveLength(3)
+  })
+  it('Bild-Auswahl hat 4 verschiedene Bilder', () => {
+    const w0 = starterWords[0]
+    const opts = choiceOptions(w0, starterWords, 'image')
+    expect(new Set(opts).size).toBe(4)
+    expect(opts).toContain(w0.image)
+  })
+  it('Startwortschatz: alle Wörter mit Bild, keine doppelten Bilder', () => {
+    expect(starterWords.length).toBeGreaterThan(100)
+    expect(starterWords.every((w) => w.image)).toBe(true)
+    expect(new Set(starterWords.map((w) => w.image)).size).toBe(starterWords.length)
   })
   it('Wortliste hat 26 Wörter', () => {
     expect(unit1Words).toHaveLength(26)

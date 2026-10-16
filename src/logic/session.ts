@@ -7,6 +7,12 @@ export type Step =
   | { kind: 'choice'; wordId: string; dir: 'en-de' | 'de-en'; phase: Phase }
   | { kind: 'type'; wordId: string; phase: Phase }
   | { kind: 'flash'; wordId: string; phase: Phase }
+  // Bilder-Modus (ohne Schreiben)
+  | { kind: 'listen'; wordId: string; phase: Phase } // hören, Bild antippen
+  | { kind: 'picture'; wordId: string; phase: Phase } // Bild sehen, englisches Wort antippen
+  | { kind: 'say'; wordId: string; phase: Phase } // Bild sehen, laut sagen, aufdecken
+
+export type Mode = 'write' | 'picture'
 
 export type Rng = () => number
 
@@ -22,16 +28,25 @@ export function shuffle<T>(arr: T[], rng: Rng = Math.random): T[] {
 export const MAX_REVIEWS_PER_ROUND = 25
 
 // Aufwärmen (fällige Wörter), dann neue Wörter kennenlernen und in drei Durchgängen üben.
-export function buildRound(dueIds: string[], newIds: string[], rng: Rng = Math.random): Step[] {
+export function buildRound(dueIds: string[], newIds: string[], rng: Rng = Math.random, mode: Mode = 'write'): Step[] {
   const steps: Step[] = []
-  for (const id of shuffle(dueIds, rng).slice(0, MAX_REVIEWS_PER_ROUND)) steps.push({ kind: 'type', wordId: id, phase: 'review' })
-  steps.push(...newWordSteps(newIds, rng))
+  shuffle(dueIds, rng)
+    .slice(0, MAX_REVIEWS_PER_ROUND)
+    .forEach((id, i) => steps.push({ kind: mode === 'picture' ? (i % 2 ? 'picture' : 'listen') : 'type', wordId: id, phase: 'review' }))
+  steps.push(...newWordSteps(newIds, rng, mode))
   return steps
 }
 
-export function newWordSteps(newIds: string[], rng: Rng = Math.random): Step[] {
+export function newWordSteps(newIds: string[], rng: Rng = Math.random, mode: Mode = 'write'): Step[] {
   const steps: Step[] = []
   for (const id of newIds) steps.push({ kind: 'intro', wordId: id })
+  if (mode === 'picture') {
+    for (const id of shuffle(newIds, rng)) steps.push({ kind: 'listen', wordId: id, phase: 'practice' })
+    for (const id of shuffle(newIds, rng)) steps.push({ kind: 'picture', wordId: id, phase: 'practice' })
+    for (const id of shuffle(newIds, rng)) steps.push({ kind: 'listen', wordId: id, phase: 'practice' })
+    for (const id of shuffle(newIds, rng)) steps.push({ kind: 'say', wordId: id, phase: 'practice' })
+    return steps
+  }
   for (const id of shuffle(newIds, rng)) steps.push({ kind: 'choice', wordId: id, dir: 'en-de', phase: 'practice' })
   for (const id of shuffle(newIds, rng)) steps.push({ kind: 'choice', wordId: id, dir: 'de-en', phase: 'practice' })
   for (const id of shuffle(newIds, rng)) steps.push({ kind: 'type', wordId: id, phase: 'practice' })
@@ -39,7 +54,7 @@ export function newWordSteps(newIds: string[], rng: Rng = Math.random): Step[] {
 }
 
 // Extra-Training mit bekannten Wörtern: verändert keine Fächer.
-export function buildExtraPractice(knownIds: string[], count = 12, rng: Rng = Math.random): Step[] {
+export function buildExtraPractice(knownIds: string[], count = 12, rng: Rng = Math.random, mode: Mode = 'write'): Step[] {
   if (knownIds.length === 0) return []
   const steps: Step[] = []
   let pool: string[] = []
@@ -47,6 +62,10 @@ export function buildExtraPractice(knownIds: string[], count = 12, rng: Rng = Ma
     if (pool.length === 0) pool = shuffle(knownIds, rng)
     const id = pool.pop()!
     const r = rng()
+    if (mode === 'picture') {
+      steps.push({ kind: r < 0.45 ? 'listen' : r < 0.8 ? 'picture' : 'say', wordId: id, phase: 'practice' })
+      continue
+    }
     if (r < 0.45) steps.push({ kind: 'type', wordId: id, phase: 'practice' })
     else if (r < 0.65) steps.push({ kind: 'choice', wordId: id, dir: 'de-en', phase: 'practice' })
     else if (r < 0.8) steps.push({ kind: 'choice', wordId: id, dir: 'en-de', phase: 'practice' })
@@ -56,8 +75,9 @@ export function buildExtraPractice(knownIds: string[], count = 12, rng: Rng = Ma
 }
 
 // Drei falsche Antwortmöglichkeiten aus demselben Wortvorrat.
-export function choiceOptions(word: Word, pool: Word[], dir: 'en-de' | 'de-en', rng: Rng = Math.random): string[] {
-  const label = (w: Word) => (dir === 'en-de' ? w.de : w.answers[0])
+export function choiceOptions(word: Word, pool: Word[], dir: 'en-de' | 'de-en' | 'image', rng: Rng = Math.random): string[] {
+  const label = (w: Word) => (dir === 'en-de' ? w.de : dir === 'image' ? (w.image ?? w.en) : w.answers[0])
+  if (dir === 'image') pool = pool.filter((w) => w.image)
   const correct = label(word)
   const others = shuffle(
     pool.filter((w) => w.id !== word.id && label(w) !== correct),

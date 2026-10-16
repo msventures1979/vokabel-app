@@ -33,11 +33,20 @@ export interface Player {
   color: string
 }
 
+// Lernmodus: 'write' = mit Schreiben (Milan), 'picture' = hören und Bilder antippen (Marlon)
+export interface ChildSettings {
+  mode?: 'write' | 'picture'
+  minMinutes?: number
+  minAnswers?: number
+  curriculum?: 'starter'
+}
+
 export interface Child extends Syncable {
   id: string
   name: string
   order?: number
   newPerDay: number
+  settings?: ChildSettings
   player?: Player
   playerDirty?: number
 }

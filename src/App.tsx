@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getMeta, seed } from './data/db'
+import { ensureCatalog } from './data/catalog'
 import { initSync, useSyncState } from './sync/account'
 import { Welcome } from './screens/Welcome'
 import { ProfilePicker } from './screens/ProfilePicker'
@@ -47,6 +48,7 @@ export default function App() {
     ;(async () => {
       await initSync()
       await seed()
+      if (!(await getMeta('familyId'))) await ensureCatalog() // ohne Konto: Listen lokal ergänzen
       setLocalOnly(!!(await getMeta('localOnly')))
       setReady(true)
     })().catch((e) => setError(String(e?.message ?? e)))

@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-const sql = readFileSync(new URL('./migrations/001_schema.sql', import.meta.url), 'utf8')
+const sql = ['001_schema.sql', '002_child_settings.sql'].map((f) => readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8')).join('\n')
 let db: PGlite
 
 const PARENT = '00000000-0000-0000-0000-000000000001'
@@ -53,7 +53,8 @@ describe('Schema und Zugriffsregeln', () => {
 
   it('Eltern schreiben Kinder, Listen, Wörter, Ziele', async () => {
     await as(PARENT, false, async () => {
-      await q(`insert into public.children (family_id, id, name, sort) values ($1, 'milan', 'Milan', 0), ($1, 'marlon', 'Marlon', 1)`, [fam])
+      await q(`insert into public.children (family_id, id, name, sort) values ($1, 'milan', 'Milan', 0)`, [fam])
+      await q(`insert into public.children (family_id, id, name, sort, settings) values ($1, 'marlon', 'Marlon', 1, '{"mode":"picture","minMinutes":10}')`, [fam])
       await q(`insert into public.lists (family_id, id, title) values ($1, 'en-u1', 'Unit 1')`, [fam])
       await q(`insert into public.words (family_id, id, list_id, sort, data) values ($1, 'en-u1:school', 'en-u1', 0, '{"en":"school"}')`, [fam])
       await q(`insert into public.assignments (family_id, child_id, list_id) values ($1, 'milan', 'en-u1')`, [fam])
@@ -76,6 +77,9 @@ describe('Schema und Zugriffsregeln', () => {
     await expect(as(DEVICE, true, () => q(`insert into public.lists (family_id, id, title) values ($1, 'x', 'x')`, [fam]))).rejects.toThrow()
     const upd = await as(DEVICE, true, () => q(`update public.goals set required_days = 1`))
     expect(upd.affectedRows).toBe(0)
+    // Kinder-Geräte können Mindestzeit nicht ändern
+    const upd2 = await as(DEVICE, true, () => q(`update public.children set settings = '{"minMinutes":1}'`))
+    expect(upd2.affectedRows).toBe(0)
   })
 
   it('Gerät schreibt Lernstand und eigene Tageswerte, Spieler per Funktion', async () => {

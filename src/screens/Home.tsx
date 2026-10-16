@@ -5,7 +5,7 @@ import { activeGoal, plan, totalStars, trainingDates } from '../data/repo'
 import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
-import { goalProgress, levelFor, MIN_ACTIVE_SECONDS, MIN_ANSWERS, streak } from '../logic/rewards'
+import { goalProgress, levelFor, rulesFor, streak } from '../logic/rewards'
 import { Btn, Card, FlameIcon, GoalTrack, Jersey, Meter, Star, TopBar } from '../ui/components'
 
 export function Home({ childId, go }: { childId: string; go: (r: Route) => void }) {
@@ -31,6 +31,8 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const minutes = log.activeSeconds / 60
   const noWords = p.pool.length === 0
   const gp = goal ? goalProgress(goal, dates) : 0
+  const rules = rulesFor(child)
+  const minMin = rules.minSeconds / 60
 
   return (
     <div className="space-y-4">
@@ -88,8 +90,8 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
               {p.dueIds.length === 0 && p.newIds.length === 0 && <>Alle Wörter sitzen. Heute gibt es freies Training.</>}
             </p>
           )}
-          <Meter label="Spielminuten" value={minutes} max={MIN_ACTIVE_SECONDS / 60} done={minutes >= MIN_ACTIVE_SECONDS / 60} />
-          <Meter label="Ballkontakte (Antworten)" value={log.answers} max={MIN_ANSWERS} done={log.answers >= MIN_ANSWERS} />
+          <Meter label="Spielminuten" value={minutes} max={minMin} done={minutes >= minMin} />
+          <Meter label="Ballkontakte (Antworten)" value={log.answers} max={rules.minAnswers} done={log.answers >= rules.minAnswers} />
           {!log.roundDone ? (
             <Btn className="w-full" onClick={() => go({ name: 'train', childId, kind: 'round' })}>
               Training starten
@@ -100,8 +102,8 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
                 <p className="text-sm text-chalk/75">
                   Runde geschafft! Für den Trainingstag fehlen noch{' '}
                   {[
-                    minutes < 15 && `${Math.ceil(15 - minutes)} Minuten`,
-                    log.answers < MIN_ANSWERS && `${MIN_ANSWERS - log.answers} Antworten`,
+                    minutes < minMin && `${Math.ceil(minMin - minutes)} Minuten`,
+                    log.answers < rules.minAnswers && `${rules.minAnswers - log.answers} Antworten`,
                   ]
                     .filter(Boolean)
                     .join(' und ')}
@@ -138,7 +140,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
           <p className="text-sm text-chalk/70 mt-2">
             {goal.status === 'reached'
               ? 'TOR! Ziel erreicht. Deine Eltern bestätigen die Übergabe.'
-              : `Noch ${goal.requiredDays - gp} Trainingstage. Jeder Tag mit 15 Minuten Training bringt den Ball näher ans Tor.`}
+              : `Noch ${goal.requiredDays - gp} Trainingstage. Jeder Tag mit ${minMin} Minuten Training bringt den Ball näher ans Tor.`}
           </p>
         </Card>
       )}

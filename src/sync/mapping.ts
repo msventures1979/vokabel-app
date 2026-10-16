@@ -10,7 +10,7 @@ const strip = <T extends object>(o: T) => {
 }
 
 export const toServer = {
-  children: (c: Child, fam: string): Row => ({ family_id: fam, id: c.id, name: c.name, sort: c.order ?? 0, new_per_day: c.newPerDay }),
+  children: (c: Child, fam: string): Row => ({ family_id: fam, id: c.id, name: c.name, sort: c.order ?? 0, new_per_day: c.newPerDay, settings: c.settings ?? {} }),
   lists: (l: WordList, fam: string): Row => ({ family_id: fam, id: l.id, title: l.title, subject: l.subject, test_date: l.testDate ?? null }),
   words: (w: Word, fam: string): Row => {
     const { id, listId, order, dirty: _d, ...data } = w
@@ -59,6 +59,7 @@ export const fromServer = {
     name: r.name as string,
     order: r.sort as number,
     newPerDay: r.new_per_day as number,
+    settings: opt(r.settings),
     player: opt(r.player),
   }),
   lists: (r: Row): WordList => ({ id: r.id as string, title: r.title as string, subject: r.subject as string, testDate: opt(r.test_date) }),
@@ -151,7 +152,9 @@ export function mergeIncoming<T extends { dirty?: number }>(
     const loc = local as unknown as Child | undefined
     const inc = incoming as unknown as Child
     if (!loc) return incoming
-    const base: Child = loc.dirty ? { ...inc, name: loc.name, order: loc.order, newPerDay: loc.newPerDay, dirty: loc.dirty } : { ...inc }
+    const base: Child = loc.dirty
+      ? { ...inc, name: loc.name, order: loc.order, newPerDay: loc.newPerDay, settings: loc.settings, dirty: loc.dirty }
+      : { ...inc }
     if (loc.playerDirty) {
       base.player = loc.player
       base.playerDirty = loc.playerDirty

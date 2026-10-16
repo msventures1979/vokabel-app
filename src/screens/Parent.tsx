@@ -15,13 +15,14 @@ import {
   setAssignment,
   setGoal,
   setNewPerDay,
+  updateChildSettings,
   setParentPin,
   totalStars,
   trainingDates,
   wordPool,
 } from '../data/repo'
 import { today } from '../logic/dates'
-import { goalProgress, streak } from '../logic/rewards'
+import { goalProgress, rulesFor, streak } from '../logic/rewards'
 import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
@@ -253,6 +254,7 @@ function ChildPanel({ childId }: { childId: string }) {
 
   if (!data?.child) return null
   const { child, pool, prog, log, dates, goal, lists, assigns, stars } = data
+  const rules = rulesFor(child)
   const progById = new Map(prog.map((p) => [p.wordId, p]))
   const boxes = [0, 1, 2, 3, 4, 5, LEARNED_BOX].map((b) => pool.filter((w) => (progById.get(w.id)?.box ?? 0) === b).length)
   const hard = [...prog].filter((p) => p.errors > 0).sort((a, b) => b.errors - a.errors).slice(0, 5)
@@ -358,19 +360,40 @@ function ChildPanel({ childId }: { childId: string }) {
       </Card>
 
       <Card className="space-y-3">
-        <div className="font-display text-xl font-extrabold uppercase">Tempo</div>
-        <div className="flex items-center justify-between">
-          <span className="text-chalk/80">Neue Wörter pro Tag</span>
-          <div className="flex items-center gap-3">
-            <Btn size="sm" variant="ghost" onClick={() => setNewPerDay(child, Math.max(1, child.newPerDay - 1))}>
-              −
-            </Btn>
-            <span className="font-display text-2xl font-extrabold w-6 text-center">{child.newPerDay}</span>
-            <Btn size="sm" variant="ghost" onClick={() => setNewPerDay(child, Math.min(15, child.newPerDay + 1))}>
-              +
-            </Btn>
-          </div>
+        <div className="font-display text-xl font-extrabold uppercase">Training und Regeln</div>
+        <div className="grid grid-cols-2 gap-2">
+          {(['write', 'picture'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => updateChildSettings(childId, { mode: m })}
+              className={`rounded-xl py-2 text-sm font-semibold ${(child.settings?.mode ?? 'write') === m ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
+            >
+              {m === 'write' ? 'Mit Schreiben' : 'Hören und Bilder'}
+            </button>
+          ))}
         </div>
+        <p className="text-xs text-chalk/60">
+          {(child.settings?.mode ?? 'write') === 'write'
+            ? 'Für Schulkinder mit Englisch: Auswahl und selbst tippen.'
+            : 'Für Kinder ohne Englisch in der Schule: hören, Bilder antippen, laut nachsprechen. Kein Schreiben.'}
+        </p>
+        <Stepper label="Neue Wörter pro Tag" value={child.newPerDay} min={1} max={15} onChange={(n) => setNewPerDay(child, n)} />
+        <Stepper
+          label="Minuten für einen Trainingstag"
+          value={rules.minSeconds / 60}
+          min={5}
+          max={60}
+          step={5}
+          onChange={(n) => updateChildSettings(childId, { minMinutes: n })}
+        />
+        <Stepper
+          label="Antworten für einen Trainingstag"
+          value={rules.minAnswers}
+          min={10}
+          max={100}
+          step={5}
+          onChange={(n) => updateChildSettings(childId, { minAnswers: n })}
+        />
       </Card>
 
       <Card className="space-y-2">
@@ -389,6 +412,23 @@ function ChildPanel({ childId }: { childId: string }) {
         })}
       </Card>
       {saved && <div className="fixed bottom-6 inset-x-0 mx-auto w-fit rounded-full bg-lime text-pitch px-4 py-2 font-semibold animate-rise">{saved}</div>}
+    </div>
+  )
+}
+
+function Stepper({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-chalk/80 text-sm">{label}</span>
+      <div className="flex items-center gap-3 shrink-0">
+        <Btn size="sm" variant="ghost" onClick={() => onChange(Math.max(min, value - step))} aria-label={`${label} weniger`}>
+          −
+        </Btn>
+        <span className="font-display text-2xl font-extrabold w-8 text-center">{value}</span>
+        <Btn size="sm" variant="ghost" onClick={() => onChange(Math.min(max, value + step))} aria-label={`${label} mehr`}>
+          +
+        </Btn>
+      </div>
     </div>
   )
 }

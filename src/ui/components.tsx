@@ -171,3 +171,22 @@ export function TopBar({ onBack, title, right }: { onBack?: () => void; title?: 
     </div>
   )
 }
+
+// Bild zu einem Wort: Emoji oder Farbfläche ("color:#rrggbb")
+export function WordImage({ image, size = 96 }: { image: string; size?: number }) {
+  if (image.startsWith('color:')) {
+    const c = image.slice(6)
+    return (
+      <span
+        className="inline-block rounded-full"
+        style={{ width: size * 0.85, height: size * 0.85, background: c, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,.18)' }}
+        aria-hidden
+      />
+    )
+  }
+  return (
+    <span className="inline-block leading-none select-none" style={{ fontSize: size * 0.8 }} aria-hidden>
+      {image}
+    </span>
+  )
+}

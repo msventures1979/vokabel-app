@@ -3,7 +3,7 @@ import { db, deviceId, getMeta, setMeta } from './db'
 import type { Child, DayLog, DayLogRow, Goal, Player, Progress, Word, WordList } from '../logic/types'
 import { today, type DateStr } from '../logic/dates'
 import { introduce, isDue, newProgress, review } from '../logic/scheduler'
-import { goalProgress, qualifiesAsTrainingDay, STARS, starsFor } from '../logic/rewards'
+import { DEFAULT_RULES, goalProgress, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
 import { syncSoon } from '../sync/signal'
 
 const now = () => Date.now()
@@ -21,7 +21,7 @@ export async function progressMap(childId: string): Promise<Map<string, Progress
 
 // ---------- Tageswerte ----------
 
-export function sumLogs(childId: string, date: DateStr, rows: DayLogRow[]): DayLog {
+export function sumLogs(childId: string, date: DateStr, rows: DayLogRow[], rules: DayRules = DEFAULT_RULES): DayLog {
   const sum: DayLog = { childId, date, activeSeconds: 0, answers: 0, roundDone: false, trainingDay: false, stars: 0, newIntroduced: 0 }
   for (const r of rows) {
     sum.activeSeconds += r.activeSeconds
@@ -30,14 +30,18 @@ export function sumLogs(childId: string, date: DateStr, rows: DayLogRow[]): DayL
     sum.newIntroduced += r.newIntroduced
     sum.roundDone ||= r.roundDone
   }
-  sum.trainingDay = qualifiesAsTrainingDay(sum)
+  sum.trainingDay = qualifiesAsTrainingDay(sum, rules)
   return sum
 }
 
 // Summe aller Geräte für einen Tag
 export async function dayLog(childId: string, date: DateStr = today()): Promise<DayLog> {
   const rows = await db.dayLogs.where('date').equals(date).filter((r) => r.childId === childId).toArray()
-  return sumLogs(childId, date, rows)
+  return sumLogs(childId, date, rows, await childRules(childId))
+}
+
+export async function childRules(childId: string): Promise<DayRules> {
+  return rulesFor(await db.children.get(childId))
 }
 
 export async function totalStars(childId: string): Promise<number> {
@@ -50,8 +54,9 @@ export async function trainingDates(childId: string): Promise<Set<DateStr>> {
   const rows = await db.dayLogs.where('childId').equals(childId).toArray()
   const byDate = new Map<DateStr, DayLogRow[]>()
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r])
+  const rules = await childRules(childId)
   const out = new Set<DateStr>()
-  for (const [d, rs] of byDate) if (sumLogs(childId, d, rs).trainingDay) out.add(d)
+  for (const [d, rs] of byDate) if (sumLogs(childId, d, rs, rules).trainingDay) out.add(d)
   return out
 }
 
@@ -59,7 +64,7 @@ async function updateOwnLog(childId: string, fn: (own: DayLogRow, total: DayLog)
   const dev = await deviceId()
   const date = today()
   const id = `${childId}:${date}:${dev}`
-  await db.transaction('rw', db.dayLogs, async () => {
+  await db.transaction('rw', db.dayLogs, db.children, async () => {
     const own = (await db.dayLogs.get(id)) ?? { id, childId, date, deviceId: dev, activeSeconds: 0, answers: 0, roundDone: false, stars: 0, newIntroduced: 0 }
     const total = await dayLog(childId, date)
     await db.dayLogs.put({ ...fn(own, total), dirty: now() })
@@ -188,6 +193,13 @@ export async function setPlayer(childId: string, player: Player) {
 
 export async function setNewPerDay(child: Child, n: number) {
   await db.children.update(child.id, { newPerDay: n, dirty: now() })
+  syncSoon()
+}
+
+export async function updateChildSettings(childId: string, patch: Partial<NonNullable<Child['settings']>>) {
+  const c = await db.children.get(childId)
+  if (!c) return
+  await db.children.update(childId, { settings: { ...c.settings, ...patch }, dirty: now() })
   syncSoon()
 }
 

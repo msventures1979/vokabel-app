@@ -9,8 +9,21 @@ export const HALF_STARS_AFTER_SECONDS = 45 * 60
 
 export const STARS = { typed: 10, choice: 5, almost: 3, flashcard: 2, perfectRound: 20 } as const
 
-export function qualifiesAsTrainingDay(log: Pick<DayLog, 'roundDone' | 'activeSeconds' | 'answers'>): boolean {
-  return log.roundDone && log.activeSeconds >= MIN_ACTIVE_SECONDS && log.answers >= MIN_ANSWERS
+export interface DayRules {
+  minSeconds: number
+  minAnswers: number
+}
+export const DEFAULT_RULES: DayRules = { minSeconds: MIN_ACTIVE_SECONDS, minAnswers: MIN_ANSWERS }
+
+export function rulesFor(child?: { settings?: { minMinutes?: number; minAnswers?: number } }): DayRules {
+  return {
+    minSeconds: (child?.settings?.minMinutes ?? MIN_ACTIVE_SECONDS / 60) * 60,
+    minAnswers: child?.settings?.minAnswers ?? MIN_ANSWERS,
+  }
+}
+
+export function qualifiesAsTrainingDay(log: Pick<DayLog, 'roundDone' | 'activeSeconds' | 'answers'>, rules: DayRules = DEFAULT_RULES): boolean {
+  return log.roundDone && log.activeSeconds >= rules.minSeconds && log.answers >= rules.minAnswers
 }
 
 // Ab 45 Minuten gibt es nur noch halbe Sterne.
