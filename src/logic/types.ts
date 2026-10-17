@@ -18,6 +18,9 @@ export interface Word extends Syncable {
   note?: string
   caseSensitive?: boolean // Großschreibung ist Pflicht (English, Mr, Mrs, OK)
   image?: string
+  // Deutsch (Lernwörterblätter): en = das deutsche Wort, das geschrieben/gelesen wird
+  syllables?: string[] // z. B. ["Kat", "ze"]
+  kind?: 'lern' | 'lese' // Lernwort (schreiben) oder Leserakete (lesen)
 }
 
 export interface WordList extends Syncable {
@@ -43,6 +46,8 @@ export interface ChildSettings {
   minMinutes?: number
   minAnswers?: number
   curriculum?: 'starter'
+  german?: boolean // Deutsch-Lernwörter (nur für Grundschulkinder)
+  germanInit?: boolean // Lernwörterblätter wurden einmalig zugeordnet
 }
 
 export interface Child extends Syncable {

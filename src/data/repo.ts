@@ -6,12 +6,18 @@ import { introduce, isDue, newProgress, review } from '../logic/scheduler'
 import { DEFAULT_RULES, qualifiesAsTrainingDay, rulesFor, STARS, starsFor, type DayRules } from '../logic/rewards'
 import { syncSoon } from '../sync/signal'
 import { bestStreak, RULES_SINCE, type AlbumStats } from '../logic/album'
+import { germanWords } from './german'
 
 const now = () => Date.now()
 
-export async function wordPool(childId: string): Promise<Word[]> {
-  const lists = (await db.assignments.where('childId').equals(childId).toArray()).filter((a) => a.active !== false)
-  const words = await db.words.where('listId').anyOf(lists.map((l) => l.listId)).toArray()
+export const GERMAN = 'Deutsch'
+export type Subject = 'en' | 'de'
+
+// Wörter der zugeordneten Listen eines Fachs (Englisch und Deutsch werden getrennt geübt)
+export async function wordPool(childId: string, subject: Subject = 'en'): Promise<Word[]> {
+  const assigned = (await db.assignments.where('childId').equals(childId).toArray()).filter((a) => a.active !== false)
+  const lists = (await db.lists.bulkGet(assigned.map((a) => a.listId))).filter((l) => l && (l.subject === GERMAN) === (subject === 'de'))
+  const words = await db.words.where('listId').anyOf(lists.map((l) => l!.id)).toArray()
   return words.sort((a, b) => (a.listId === b.listId ? a.order - b.order : a.listId.localeCompare(b.listId)))
 }
 
@@ -138,6 +144,7 @@ export interface Plan {
   newIds: string[]
   knownIds: string[]
   extraNewAllowed: number
+  freshCount: number // Wörter, die noch nie dran waren
   log: DayLog
 }
 
@@ -157,9 +164,10 @@ export async function plan(childId: string): Promise<Plan> {
     })
     .map((w) => w.id)
   const knownIds = pool.filter((w) => (prog.get(w.id)?.box ?? 0) > 0).map((w) => w.id)
-  const roundNew = log.roundDone ? 0 : Math.max(0, perDay - log.newIntroduced)
+  // Neue Wörter je Tag begrenzt über die Zahl der heute eingeführten (Deutsch zählt hier nicht mit)
+  const roundNew = Math.max(0, perDay - log.newIntroduced)
   const extraNewAllowed = Math.max(0, perDay * 2 - log.newIntroduced)
-  return { pool, dueIds, newIds: fresh.slice(0, roundNew), knownIds, extraNewAllowed: Math.min(extraNewAllowed, fresh.length), log }
+  return { pool, dueIds, newIds: fresh.slice(0, roundNew), knownIds, extraNewAllowed: Math.min(extraNewAllowed, fresh.length), freshCount: fresh.length, log }
 }
 
 export async function freshWordIds(childId: string, n: number): Promise<string[]> {
@@ -295,4 +303,38 @@ export async function clearParentPin() {
 }
 export async function checkParentPin(pin: string) {
   return (await getMeta('parentPin')) === (await sha(pin))
+}
+
+// ---------- Deutsch (Lernwörter) ----------
+
+// Ergebnis einer Deutsch-Übung in den Karteikasten übernehmen (zählt nicht zu den neuen Englisch-Wörtern)
+export async function germanResult(childId: string, wordId: string, correct: boolean) {
+  const day = today()
+  const id = `${childId}:${wordId}`
+  const p = (await db.progress.get(id)) ?? newProgress(childId, wordId)
+  let next = p
+  if (p.box === 0) next = introduce(p, day)
+  else if (isDue(p, day) || !correct) next = review(p, correct, day)
+  if (next !== p) await db.progress.put({ ...next, dirty: now() })
+}
+
+export async function germanData(childId: string) {
+  const pool = await wordPool(childId, 'de')
+  const lists = (await db.lists.bulkGet([...new Set(pool.map((w) => w.listId))])).filter((l): l is WordList => !!l)
+  return { pool, lists, progress: await progressMap(childId) }
+}
+
+// Neues Lernwörterblatt speichern und dem Kind zuordnen. Wörter mit Silbenstrich: "Kat-ze"
+export async function saveGermanSheet(childId: string, title: string, lern: string[], lese: string[]) {
+  const listId = `de-${crypto.randomUUID().slice(0, 8)}`
+  const words = germanWords(listId, lern, lese)
+  if (!words.some((w) => w.kind === 'lern')) throw new Error('Bitte mindestens ein Lernwort eintragen.')
+  const stamp = now()
+  await db.transaction('rw', db.lists, db.words, db.assignments, async () => {
+    await db.lists.put({ id: listId, title: title.trim() || 'Lernwörterblatt', subject: GERMAN, dirty: stamp })
+    await db.words.bulkPut(words.map((w) => ({ ...w, dirty: stamp })))
+    await db.assignments.put({ id: `${childId}:${listId}`, childId, listId, active: true, dirty: stamp })
+  })
+  syncSoon()
+  return words.length
 }

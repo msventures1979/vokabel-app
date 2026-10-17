@@ -1,0 +1,75 @@
+// Deutsch-Runde für Grundschulkinder: Lernwörter des aktuellen Lernwörterblatts mit Silben und Schreiben,
+// fällige Lernwörter früherer Blätter zur Wiederholung, am Ende die Leserakete.
+import { isDue } from './scheduler'
+import type { DateStr } from './dates'
+import type { Progress, Word, WordList } from './types'
+
+type Rng = () => number
+
+export type GermanStep =
+  | { kind: 'silben'; word: Word }
+  | { kind: 'schreiben'; word: Word }
+  | { kind: 'rakete'; words: Word[] }
+
+const MAX_REVIEW = 4
+
+function shuffle<T>(a: T[], rng: Rng): T[] {
+  const b = [...a]
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[b[i], b[j]] = [b[j], b[i]]
+  }
+  return b
+}
+
+// Aktuelles Blatt = das mit der höchsten Nummer im Titel ("Lernwörterblatt 3" nach "Lernwörterblatt 2")
+export function currentSheet(lists: WordList[], pool: Word[]): WordList | undefined {
+  const withWords = lists.filter((l) => pool.some((w) => w.listId === l.id))
+  return [...withWords].sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true })).at(-1)
+}
+
+export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<string, Progress>, day: DateStr, rng: Rng = Math.random): GermanStep[] {
+  const sheet = currentSheet(lists, pool)
+  if (!sheet) return []
+  const lern = pool.filter((w) => w.listId === sheet.id && w.kind !== 'lese').sort((a, b) => a.order - b.order)
+  const lese = pool.filter((w) => w.listId === sheet.id && w.kind === 'lese')
+  const review = shuffle(
+    pool.filter((w) => w.listId !== sheet.id && w.kind !== 'lese' && progress.get(w.id) && isDue(progress.get(w.id)!, day)),
+    rng,
+  ).slice(0, MAX_REVIEW)
+
+  const steps: GermanStep[] = []
+  for (const w of lern) {
+    if ((w.syllables?.length ?? 1) > 1) steps.push({ kind: 'silben', word: w })
+    steps.push({ kind: 'schreiben', word: w })
+  }
+  for (const w of review) steps.push({ kind: 'schreiben', word: w })
+  const rocket = shuffle([...lese, ...lern], rng)
+  if (rocket.length) steps.push({ kind: 'rakete', words: rocket })
+  return steps
+}
+
+export interface Tile {
+  id: number
+  ch: string
+}
+
+// Buchstaben-Kärtchen: alle Buchstaben des Wortes plus Ablenker (andere Groß-/Kleinschreibung, ähnliche Buchstaben)
+export function lettersFor(word: string, rng: Rng = Math.random): Tile[] {
+  const chars = [...word]
+  const extra: string[] = []
+  const first = chars[0]
+  const flipped = first === first.toUpperCase() ? first.toLowerCase() : first.toUpperCase()
+  if (flipped !== first) extra.push(flipped)
+  const similar: Record<string, string> = { ä: 'a', ü: 'u', ö: 'o', a: 'ä', u: 'ü', o: 'ö', b: 'd', d: 'b', s: 'z', z: 's', e: 'i', i: 'e', m: 'n', n: 'm', h: 'k', k: 'h', g: 'k', t: 'd' }
+  for (const c of shuffle(chars.slice(1), rng)) {
+    const s = similar[c]
+    if (s && !extra.includes(s)) extra.push(s)
+    if (extra.length >= 3) break
+  }
+  while (extra.length < 3) {
+    const r = 'aeinrstlmh'[Math.floor(rng() * 10)]
+    if (!extra.includes(r)) extra.push(r)
+  }
+  return shuffle([...chars, ...extra], rng).map((ch, id) => ({ id, ch }))
+}

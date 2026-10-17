@@ -56,7 +56,7 @@ describe('Datenbank-Upgrade von Version 1', () => {
 })
 
 describe('Eingebaute Inhalte', () => {
-  it('Marlon bekommt Bilder-Modus, Startlisten und Saisons', async () => {
+  it('Marlon bekommt Bilder-Modus, Startlisten, Lernwörterblätter und Saisons', async () => {
     const { db, seedFamilyData } = await import('../data/db')
     const { ensureCatalog } = await import('../data/catalog')
     await db.delete()
@@ -65,7 +65,13 @@ describe('Eingebaute Inhalte', () => {
     expect(await ensureCatalog()).toBe(true)
     const m = await db.children.get('marlon')
     expect(m?.settings?.mode).toBe('picture')
-    expect(await db.assignments.where('childId').equals('marlon').count()).toBe(12)
+    expect(await db.assignments.where('childId').equals('marlon').count()).toBe(14) // 12 Start-Listen + 2 Lernwörterblätter
+    expect(m?.settings?.german).toBe(true)
+    // Englisch und Deutsch getrennt: Deutsch-Wörter tauchen im Englisch-Training nicht auf
+    const { wordPool } = await import('../data/repo')
+    expect((await wordPool('marlon')).some((w) => w.listId.startsWith('de-'))).toBe(false)
+    expect((await wordPool('marlon', 'de')).every((w) => w.listId.startsWith('de-'))).toBe(true)
+    expect((await wordPool('milan', 'de'))).toHaveLength(0)
     const goals = await db.goals.where('childId').equals('marlon').toArray()
     expect(goals).toHaveLength(1)
     expect(goals[0]).toMatchObject({ title: 'Saisonpokal', requiredDays: 25 })

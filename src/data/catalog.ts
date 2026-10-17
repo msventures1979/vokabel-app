@@ -3,12 +3,14 @@
 import { db } from './db'
 import { unit1, unit1Words } from './en-unit1'
 import { isStarterList, starterLists, starterWords } from './starter'
+import { germanSheets } from './german'
 import type { Word, WordList } from '../logic/types'
 import { today } from '../logic/dates'
 
 const CATALOG: Array<{ list: WordList; words: Word[] }> = [
   { list: unit1, words: unit1Words },
   ...starterLists.map((list) => ({ list, words: starterWords.filter((w) => w.listId === list.id) })),
+  ...germanSheets,
 ]
 
 export const MARLON_DEFAULTS = { mode: 'picture' as const, minMinutes: 10, minAnswers: 25, curriculum: 'starter' as const }
@@ -38,6 +40,17 @@ export async function ensureCatalog(): Promise<boolean> {
     // Marlon: Saisons mit 25 Trainingstagen, falls noch keine angelegt sind
     if (marlon && (await db.goals.where('childId').equals('marlon').count()) === 0) {
       await db.goals.add({ id: crypto.randomUUID(), childId: 'marlon', title: 'Saisonpokal', requiredDays: 25, startDate: today(), status: 'active', dirty: stamp })
+      changed = true
+    }
+
+    // Marlon: einmalig Deutsch-Lernwörter einschalten und die Lernwörterblätter zuordnen
+    const m2 = await db.children.get('marlon')
+    if (m2 && !m2.settings?.germanInit) {
+      for (const { list } of germanSheets) {
+        const id = `marlon:${list.id}`
+        if (!(await db.assignments.get(id))) await db.assignments.put({ id, childId: 'marlon', listId: list.id, active: true, dirty: stamp })
+      }
+      await db.children.put({ ...m2, settings: { ...m2.settings, german: true, germanInit: true }, dirty: stamp })
       changed = true
     }
 

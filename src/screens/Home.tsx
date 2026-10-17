@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../data/db'
-import { activeGoal, albumStats, markCardsSeen, plan, seenCards, totalStars, trainingDates } from '../data/repo'
+import { activeGoal, albumStats, germanData, markCardsSeen, plan, seenCards, totalStars, trainingDates } from '../data/repo'
+import { currentSheet } from '../logic/germanSession'
 import { CARDS, CLUBS, completedClubs, currentClub, nextCardText, ownedIds } from '../logic/album'
 import { speak } from '../lib/speech'
 import { play, praise, setSoundOn, soundOn } from '../lib/sounds'
 import { ClubCrest, Confetti, PlayerCard } from '../ui/components'
-import { ReminderCard } from './Reminder'
 import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
@@ -26,7 +26,9 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
       albumStats(childId),
       seenCards(childId),
     ])
-    return { child, p, stars, goal, dates, album, seen }
+    const german = child.settings?.german ? await germanData(childId) : null
+    const sheet = german ? currentSheet(german.lists, german.pool) : undefined
+    return { child, p, stars, goal, dates, album, seen, german: german ? { sheet, count: german.pool.filter((w) => w.kind !== 'lese').length } : null }
   }, [childId])
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const [dismissed, setDismissed] = useState<string[]>([])
 
   if (!data || !data.child.player) return null
-  const { child, p, stars, goal, dates, album, seen } = data
+  const { child, p, stars, goal, dates, album, seen, german } = data
   const unlocked = ownedIds(album)
   // Ereignisse: neue Karten, danach vollständige Vereine (als "club:<id>")
   const seasonWins = goal ? seasonFor(goal, dates).won : 0
@@ -136,6 +138,11 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
             <div className="font-display text-2xl font-extrabold uppercase">Heutiges Training</div>
             {log.trainingDay && <span className="font-display text-lime font-extrabold uppercase">Geschafft!</span>}
           </div>
+          {p.freshCount === 0 && (
+            <div className="rounded-2xl bg-gold/15 ring-1 ring-gold/40 p-3 text-sm">
+              <b className="text-gold">Alle Wörter sind schon dran gewesen!</b> Bitte deine Eltern um die nächsten Vokabeln, zum Beispiel die nächste Unit aus deinem Buch. Bis dahin wiederholst du deine Wörter.
+            </div>
+          )}
           {!log.roundDone && (
             <p className="text-chalk/80">
               {p.dueIds.length > 0 && (
@@ -160,7 +167,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
                   Runde geschafft! Für den Trainingstag fehlen noch{' '}
                   {[
                     minutes < minMin && `${Math.ceil(minMin - minutes)} Minuten`,
-                    log.answers < rules.minAnswers && `${rules.minAnswers - log.answers} Antworten`,
+                    log.answers < rules.minAnswers && `${rules.minAnswers - log.answers} ${rules.minAnswers - log.answers === 1 ? 'Antwort' : 'Antworten'}`,
                   ]
                     .filter(Boolean)
                     .join(' und ')}
@@ -171,6 +178,23 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
                 Extra-Training
               </Btn>
             </>
+          )}
+        </Card>
+      )}
+
+      {german && (
+        <Card className="flex items-center gap-4">
+          <div className="text-4xl" aria-hidden>
+            ✏️
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-display text-2xl font-extrabold uppercase">Deutsch</div>
+            <div className="text-sm text-chalk/70">{german.sheet ? `${german.sheet.title}: Silben, Schreiben, Leserakete` : 'Noch keine Lernwörter'}</div>
+          </div>
+          {german.sheet && (
+            <Btn size="md" className="!w-auto" onClick={() => go({ name: 'deutsch', childId })}>
+              Üben
+            </Btn>
           )}
         </Card>
       )}
@@ -214,7 +238,6 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
           </p>
         </Card>
       )}
-      <ReminderCard childId={childId} />
       <SoundToggle />
 
       {newCard && (

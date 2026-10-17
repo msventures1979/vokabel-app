@@ -15,6 +15,7 @@ import {
   setAssignment,
   setNewPerDay,
   updateChildSettings,
+  GERMAN,
   setParentPin,
   totalStars,
   trainingDates,
@@ -26,23 +27,16 @@ import { LEARNED_BOX } from '../logic/scheduler'
 import { Btn, Card, TopBar } from '../ui/components'
 import { DevicesPanel } from './Devices'
 import { PhotoImport } from './PhotoImport'
+import { ReminderCard } from './Reminder'
+import { GermanImport } from './GermanImport'
 import { signInParent, useSyncState } from '../sync/account'
 import { AccountForm } from './Welcome'
 
 export function Parent({ go }: { go: (r: Route) => void }) {
   const [unlocked, setUnlocked] = useState(false)
   const sync = useSyncState()
-  if (sync.familyId && sync.role === 'device')
-    return (
-      <div>
-        <TopBar onBack={() => go({ name: 'pick' })} title="Eltern-Bereich" />
-        <Card className="mt-4">
-          <div className="font-display text-2xl font-extrabold uppercase">Nur auf dem Eltern-Handy</div>
-          <p className="text-chalk/75 mt-1">Dieses Gerät ist ein Kinder-Gerät. Ziele, Wörter und Einstellungen änderst du in der App auf deinem eigenen Handy.</p>
-        </Card>
-      </div>
-    )
   if (!unlocked) return <PinGate onBack={() => go({ name: 'pick' })} onOk={() => setUnlocked(true)} />
+  if (sync.familyId && sync.role === 'device') return <DeviceParentArea go={go} />
   return <ParentArea go={go} />
 }
 
@@ -281,6 +275,11 @@ function ChildPanel({ childId }: { childId: string }) {
 
       <Card>
         <div className="font-display text-xl font-extrabold uppercase mb-2">Karteikasten ({pool.length} Wörter)</div>
+        {pool.length > 0 && boxes[0] === 0 && (
+          <div className="mb-3 rounded-xl bg-gold/15 ring-1 ring-gold/40 p-3 text-sm">
+            <b className="text-gold">Alle Wörter sind eingeführt.</b> {child.name} bekommt keine neuen Wörter mehr. Bitte unten unter „Daten“ per Foto die nächste Unit hinzufügen.
+          </div>
+        )}
         <div className="grid grid-cols-7 gap-1 text-center text-xs">
           {['Neu', 'F1', 'F2', 'F3', 'F4', 'F5', 'Sitzt'].map((l, i) => (
             <div key={l} className="rounded-lg bg-black/20 py-2">
@@ -343,6 +342,11 @@ function ChildPanel({ childId }: { childId: string }) {
         </Btn>
       </Card>
 
+      <div className="space-y-1">
+        <div className="text-xs text-chalk/60 px-1">Erinnerung auf diesem Handy (z. B. wenn {child.name} hier spielt)</div>
+        <ReminderCard childId={childId} />
+      </div>
+
       <Card className="space-y-3">
         <div className="font-display text-xl font-extrabold uppercase">Training und Regeln</div>
         <div className="grid grid-cols-2 gap-2">
@@ -361,6 +365,18 @@ function ChildPanel({ childId }: { childId: string }) {
             ? 'Für Schulkinder mit Englisch: Auswahl und selbst tippen.'
             : 'Für Kinder ohne Englisch in der Schule: hören, Bilder antippen, laut nachsprechen. Kein Schreiben.'}
         </p>
+        <label className="flex items-center justify-between gap-3 py-1">
+          <span>
+            Deutsch-Lernwörter
+            <span className="block text-xs text-chalk/60">Für die Grundschule: Silben, Schreiben, Leserakete</span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-6 w-6 accent-lime"
+            checked={!!child.settings?.german}
+            onChange={(e) => updateChildSettings(childId, { german: e.target.checked })}
+          />
+        </label>
         <Stepper label="Neue Wörter pro Tag" value={child.newPerDay} min={1} max={15} onChange={(n) => setNewPerDay(child, n)} />
         <Stepper
           label="Minuten für einen Trainingstag"
@@ -379,6 +395,26 @@ function ChildPanel({ childId }: { childId: string }) {
           onChange={(n) => updateChildSettings(childId, { minAnswers: n })}
         />
       </Card>
+
+      {child.settings?.german && (
+        <Card className="space-y-3">
+          <div className="font-display text-xl font-extrabold uppercase">Deutsch-Lernwörter</div>
+          {lists.filter((l) => l.subject === GERMAN && assigns.some((a) => a.listId === l.id && a.active !== false)).length === 0 ? (
+            <p className="text-sm text-chalk/70">Noch kein Lernwörterblatt.</p>
+          ) : (
+            <ul className="text-sm space-y-1">
+              {lists
+                .filter((l) => l.subject === GERMAN && assigns.some((a) => a.listId === l.id && a.active !== false))
+                .sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true }))
+                .map((l) => (
+                  <li key={l.id}>📄 {l.title}</li>
+                ))}
+            </ul>
+          )}
+          <p className="text-xs text-chalk/60">Geübt wird immer das neueste Blatt. Ältere Lernwörter kommen zur Wiederholung wieder.</p>
+          <GermanImport childId={childId} childName={child.name} nextNumber={lists.filter((l) => l.subject === GERMAN).length + 1} />
+        </Card>
+      )}
 
       <Card className="space-y-2">
         <div className="font-display text-xl font-extrabold uppercase">Wortlisten</div>
@@ -504,6 +540,26 @@ function DataPanel() {
         </label>
       </Card>
       {msg && <p className="text-center text-gold">{msg}</p>}
+    </div>
+  )
+}
+
+// Eltern-Bereich auf einem Kinder-Gerät: nur Einstellungen, die für dieses Gerät gelten
+function DeviceParentArea({ go }: { go: (r: Route) => void }) {
+  const children = useLiveQuery(async () => sortChildren(await db.children.toArray()), [])
+  return (
+    <div className="space-y-4">
+      <TopBar onBack={() => go({ name: 'pick' })} title="Eltern-Bereich" />
+      <Card>
+        <div className="font-display text-xl font-extrabold uppercase">Kinder-Gerät</div>
+        <p className="text-chalk/75 mt-1 text-sm">Ziele, Wörter und Regeln änderst du in der App auf deinem eigenen Handy. Hier stellst du nur die Erinnerung für dieses Gerät ein.</p>
+      </Card>
+      {(children ?? []).map((c) => (
+        <div key={c.id} className="space-y-2">
+          <div className="font-display text-lg font-extrabold uppercase text-chalk/80">{c.player?.name ?? c.name}</div>
+          <ReminderCard childId={c.id} />
+        </div>
+      ))}
     </div>
   )
 }

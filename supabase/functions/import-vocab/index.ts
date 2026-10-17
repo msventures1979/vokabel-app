@@ -53,6 +53,29 @@ const TOOL = {
   },
 }
 
+// Lernwörterblatt (Deutsch, Grundschule)
+const TOOL_DE = {
+  name: 'lernwoerter',
+  description: 'Lernwörter und Leserakete-Wörter von einem deutschen Lernwörterblatt.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: 'Überschrift des Blatts, z. B. "Lernwörterblatt 3"' },
+      lernwoerter: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Die Lernwörter (meist 5, groß gedruckt in der linken Spalte) mit Silbentrennung durch Bindestrich, z. B. "Kat-ze", "Hund", "fres-sen". Groß-/Kleinschreibung genau wie gedruckt.',
+      },
+      lesewoerter: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Die Wörter der Leserakete bzw. Leseliste, mit Silbentrennung durch Bindestrich, Groß-/Kleinschreibung wie gedruckt.',
+      },
+    },
+    required: ['lernwoerter'],
+  },
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -66,7 +89,8 @@ Deno.serve(async (req) => {
     const key = Deno.env.get('ANTHROPIC_API_KEY')
     if (!key) return json({ error: 'Der KI-Zugang ist noch nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' }, 500)
 
-    const { image, mediaType } = await req.json()
+    const { image, mediaType, kind } = await req.json()
+    const german = kind === 'lernwoerter'
     if (typeof image !== 'string' || image.length < 100) return json({ error: 'Kein Bild erhalten.' }, 400)
     if (image.length > 7_000_000) return json({ error: 'Das Bild ist zu groß.' }, 400)
 
@@ -76,8 +100,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 4096,
-        tools: [TOOL],
-        tool_choice: { type: 'tool', name: 'vokabeln' },
+        tools: [german ? TOOL_DE : TOOL],
+        tool_choice: { type: 'tool', name: german ? 'lernwoerter' : 'vokabeln' },
         messages: [
           {
             role: 'user',
@@ -85,8 +109,10 @@ Deno.serve(async (req) => {
               { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: image } },
               {
                 type: 'text',
-                text:
-                  'Das ist eine Vokabelseite aus einem Englischbuch für die 5. Klasse. Lies alle Vokabeln vollständig und genau ab, in der Reihenfolge der Seite. ' +
+                text: german
+                  ? 'Das ist ein Lernwörterblatt aus der 2. Klasse (Deutsch). Lies die gedruckten Lernwörter (nicht die Abschriften des Kindes) und die Wörter der Leserakete genau ab. ' +
+                    'Trenne jedes Wort nach deutschen Silben mit Bindestrich (Kat-ze, Mäd-chen, fres-sen, Gar-ten); einsilbige Wörter bleiben ungetrennt. Erfinde nichts dazu.'
+                  : 'Das ist eine Vokabelseite aus einem Englischbuch für die 5. Klasse. Lies alle Vokabeln vollständig und genau ab, in der Reihenfolge der Seite. ' +
                   'Übernimm deutsche Bedeutungen, Lautschrift und Beispielsätze wörtlich. Erfinde nichts dazu; fehlt etwas, lass das Feld weg. ' +
                   'Bei "to go" gehören "to go" und "go" zu den erlaubten Antworten; bei "it\'s (= it is)" gehören "it\'s" und "it is" dazu.',
               },
@@ -98,7 +124,7 @@ Deno.serve(async (req) => {
     if (!res.ok) return json({ error: `KI-Fehler (${res.status}).` }, 502)
     const out = await res.json()
     const tool = (out.content ?? []).find((c: { type: string }) => c.type === 'tool_use')
-    if (!tool) return json({ error: 'Auf dem Bild wurden keine Vokabeln erkannt.' }, 422)
+    if (!tool) return json({ error: german ? 'Auf dem Bild wurden keine Lernwörter erkannt.' : 'Auf dem Bild wurden keine Vokabeln erkannt.' }, 422)
     return json(tool.input)
   } catch (e) {
     return json({ error: String((e as Error).message ?? e) }, 500)

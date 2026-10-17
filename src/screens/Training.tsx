@@ -637,16 +637,18 @@ function FeedbackSheet({ fb, onNext, celebration }: { fb: Feedback; onNext: () =
   )
 }
 
-function Summary({
+export function Summary({
   childId,
   done,
   earned,
   onHome,
   onMore,
   onPenalty,
+  moreLabel = 'Extra-Training',
 }: {
   childId: string
   onPenalty: () => void
+  moreLabel?: string
   done: {
     before: DayLog
     after: DayLog
@@ -699,7 +701,7 @@ function Summary({
       ) : (
         <p className="text-chalk/80">
           Bis zum Trainingstag fehlen noch{' '}
-          {[missingMin > 0 && `${missingMin} Minuten`, missingAns > 0 && `${missingAns} Antworten`].filter(Boolean).join(' und ')}
+          {[missingMin > 0 && `${missingMin} ${missingMin === 1 ? 'Minute' : 'Minuten'}`, missingAns > 0 && `${missingAns} ${missingAns === 1 ? 'Antwort' : 'Antworten'}`].filter(Boolean).join(' und ')}
           {!after.roundDone && ' und die Tagesrunde'}.
         </p>
       )}
@@ -710,7 +712,7 @@ function Summary({
         >
           <span className="text-3xl">🥅</span> Elfmeterschießen
         </button>
-        <Btn onClick={onMore}>Extra-Training</Btn>
+        <Btn onClick={onMore}>{moreLabel}</Btn>
         <Btn variant="ghost" size="md" onClick={onHome}>
           Zur Kabine
         </Btn>

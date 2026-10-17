@@ -5,6 +5,8 @@ import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
 import { activeDelta, goalProgress, levelFor, levelHint, seasonFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
 import { keeperCorner, pickShots } from './penalty'
 import { newAtLevel, safeGear } from './gear'
+import { buildGermanRound, lettersFor } from './germanSession'
+import { germanSheets, germanWords, parseSyllables } from '../data/german'
 import { CARDS, CLUBS, clubCards, completedClubs, nextCard, ownedIds, type AlbumStats } from './album'
 import { buildExtraPractice, buildRound, choiceOptions } from './session'
 import { starterWords } from '../data/starter'
@@ -240,5 +242,39 @@ describe('Spind (Ausrüstung)', () => {
   it('jede Liga bringt Trikot, Schuhe und Torjubel', () => {
     for (let l = 1; l <= 5; l++) expect(newAtLevel(l)).toHaveLength(3)
     expect(newAtLevel(1)).toEqual(['Streifen-Trikot', 'Lime-Schuhe', 'Torjubel „Flieger“ ✈️'])
+  })
+})
+
+describe('Deutsch-Lernwörter', () => {
+  it('Silbentrennung mit Bindestrich', () => {
+    expect(parseSyllables('Kat-ze')).toEqual({ word: 'Katze', syllables: ['Kat', 'ze'] })
+    expect(parseSyllables('Hund')).toEqual({ word: 'Hund', syllables: ['Hund'] })
+  })
+
+  it('Lernwörterblätter sind korrekt angelegt', () => {
+    const lw2 = germanSheets[1].words
+    expect(lw2.filter((w) => w.kind === 'lern').map((w) => w.en)).toEqual(['Hase', 'Hund', 'Katze', 'fressen', 'leicht'])
+    expect(lw2.filter((w) => w.kind === 'lese')).toHaveLength(11)
+    expect(new Set(lw2.map((w) => w.id)).size).toBe(lw2.length)
+  })
+
+  it('Runde: aktuelles Blatt mit Silben und Schreiben, fällige alte Wörter, am Ende die Leserakete', () => {
+    const pool = [...germanSheets[0].words, ...germanSheets[1].words]
+    const lists = germanSheets.map((s) => s.list)
+    const prog = new Map([['de-lw1:buch', { id: 'm:de-lw1:buch', childId: 'm', wordId: 'de-lw1:buch', box: 2, due: '2026-10-01', wrongStreak: 0, errors: 1 }]]) as never
+    const steps = buildGermanRound(pool, lists, prog, '2026-10-17')
+    const kinds = steps.map((s) => (s.kind === 'rakete' ? 'rakete' : `${s.kind}:${s.word.en}`))
+    expect(kinds.slice(0, 3)).toEqual(['silben:Hase', 'schreiben:Hase', 'schreiben:Hund'])
+    expect(kinds).toContain('schreiben:Buch') // fällig aus Blatt 1
+    expect(kinds).not.toContain('schreiben:laut') // nicht fällig
+    expect(kinds.at(-1)).toBe('rakete')
+  })
+
+  it('Buchstaben-Kärtchen: alle Buchstaben des Wortes plus Ablenker, auch die andere Großschreibung', () => {
+    const tiles = lettersFor('Katze').map((t) => t.ch)
+    for (const c of 'Katze') expect(tiles).toContain(c)
+    expect(tiles).toContain('k')
+    expect(tiles.length).toBe(8)
+    expect(germanWords('x', ['Hund'], ['Hund'])).toHaveLength(2)
   })
 })

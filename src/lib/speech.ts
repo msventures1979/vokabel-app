@@ -80,3 +80,29 @@ export function speak(text: string, rate = 0.9) {
   current = a
   a.play().catch(() => deviceSpeak(text, rate))
 }
+
+// Deutsche Aussprache (Lernwörter) über die Gerätestimme; deutsche Gerätestimmen sind meist gut
+let deVoice: SpeechSynthesisVoice | null = null
+function pickDeVoice() {
+  if (typeof speechSynthesis === 'undefined') return null
+  const de = speechSynthesis.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith('de'))
+  deVoice = de.find((v) => GOOD.test(v.name)) ?? de.find((v) => !v.localService) ?? de[0] ?? null
+  return deVoice
+}
+if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', pickDeVoice)
+
+export function speakDe(text: string, slow = false) {
+  if (typeof speechSynthesis === 'undefined') return
+  try {
+    current?.pause()
+    speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'de-DE'
+    u.rate = slow ? 0.6 : 0.85
+    const v = deVoice ?? pickDeVoice()
+    if (v) u.voice = v
+    speechSynthesis.speak(u)
+  } catch {
+    /* Sprachausgabe nicht verfügbar */
+  }
+}
