@@ -3,6 +3,7 @@ import { addDays, isoWeekKey } from './dates'
 import { checkAnswer } from './answers'
 import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
 import { activeDelta, goalProgress, levelFor, levelHint, seasonFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
+import { keeperCorner, pickShots } from './penalty'
 import { CARDS, CLUBS, clubCards, completedClubs, nextCard, ownedIds, type AlbumStats } from './album'
 import { buildExtraPractice, buildRound, choiceOptions } from './session'
 import { starterWords } from '../data/starter'
@@ -190,5 +191,38 @@ describe('Saisons (virtuelle Pokale)', () => {
     expect(seasonFor(g, dates(25))).toMatchObject({ season: 2, won: 1, progress: 0 })
     expect(seasonFor(g, dates(27)).trophy.name).toBe('Goldener Pokal')
     expect(seasonFor(g, new Set(['2026-10-31'])).progress).toBe(0) // Tage vor dem Saisonstart zählen nicht
+  })
+})
+
+describe('Elfmeterschießen', () => {
+  const words = Array.from({ length: 12 }, (_, i) => ({
+    id: `w${i}`, listId: i < 6 ? 'a' : 'b', order: i, en: `en${i}`, answers: [`en${i}`], de: `de${i}`, image: `🙂${i}`,
+  })) as never[]
+  const prog = new Map(
+    [0, 1, 2, 3, 4, 5, 6].map((i) => [`w${i}`, { id: `k:w${i}`, childId: 'k', wordId: `w${i}`, box: 2, due: null, wrongStreak: i === 6 ? 2 : 0, errors: i === 6 ? 5 : 0 }]),
+  ) as never
+
+  it('5 Schüsse mit je 3 verschiedenen Antworten, genau eine richtig', () => {
+    const shots = pickShots(words, prog, 'write')
+    expect(shots).toHaveLength(5)
+    for (const s of shots) {
+      expect(s.options).toHaveLength(3)
+      expect(new Set(s.options).size).toBe(3)
+      expect(s.options[s.correct]).toBe(s.word.answers[0])
+    }
+    // das schwerste Wort ist dabei, nur schon eingeführte Wörter
+    expect(shots.map((s) => s.word.id)).toContain('w6')
+    expect(shots.every((s) => ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6'].includes(s.word.id))).toBe(true)
+  })
+
+  it('Bilder-Modus nutzt Bilder als Antworten', () => {
+    const s = pickShots(words, prog, 'picture')[0]
+    expect(s.dir).toBe('image')
+    expect(s.options[s.correct]).toBe(s.word.image)
+  })
+
+  it('Torwart springt bei Fehlschuss in die Schussecke, sonst woanders hin', () => {
+    expect(keeperCorner(2, true)).toBe(2)
+    for (let i = 0; i < 20; i++) expect(keeperCorner(1, false)).not.toBe(1)
   })
 })

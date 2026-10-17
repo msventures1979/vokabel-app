@@ -17,6 +17,7 @@ import { DEFAULT_RULES, STARS, type DayRules } from '../logic/rewards'
 import { useActivityClock } from '../lib/useActivityClock'
 import { speak } from '../lib/speech'
 import { play, praise } from '../lib/sounds'
+import { Penalty } from './Penalty'
 import { Btn, Card, Confetti, SpeakerIcon, Star, TopBar, WordImage } from '../ui/components'
 import { db } from '../data/db'
 import { childRules } from '../data/repo'
@@ -41,6 +42,7 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
   const [earned, setEarned] = useState(0)
   const [done, setDone] = useState<null | { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean; rules: DayRules }>(null)
   const [quit, setQuit] = useState(false)
+  const [penalty, setPenalty] = useState(false)
   const newIds = useRef<string[]>([])
   const requeued = useRef(new Set<string>())
   const before = useRef<DayLog | null>(null)
@@ -138,7 +140,18 @@ export function Training({ childId, kind, go }: { childId: string; kind: Trainin
     busy.current = false
   }
 
-  if (done) return <Summary childId={childId} done={done} earned={earned} onHome={() => go({ name: 'home', childId })} onMore={() => go({ name: 'train', childId, kind: 'extra' })} />
+  if (penalty) return <Penalty childId={childId} onDone={() => go({ name: 'home', childId })} />
+  if (done)
+    return (
+      <Summary
+        childId={childId}
+        done={done}
+        earned={earned}
+        onHome={() => go({ name: 'home', childId })}
+        onMore={() => go({ name: 'train', childId, kind: 'extra' })}
+        onPenalty={() => setPenalty(true)}
+      />
+    )
   if (!pool || !step || !word) {
     return (
       <div>
@@ -600,8 +613,10 @@ function Summary({
   earned,
   onHome,
   onMore,
+  onPenalty,
 }: {
   childId: string
+  onPenalty: () => void
   done: { before: DayLog; after: DayLog; perfect: boolean; isRound: boolean; rules: DayRules }
   earned: number
   onHome: () => void
@@ -652,6 +667,12 @@ function Summary({
         </p>
       )}
       <div className="grid gap-3 pt-2">
+        <button
+          onClick={onPenalty}
+          className="w-full rounded-2xl bg-gold text-pitch px-6 py-4 font-display text-2xl font-extrabold uppercase shadow-[0_4px_0_#b8901f] active:translate-y-[3px] active:shadow-[0_1px_0_#b8901f] flex items-center justify-center gap-3"
+        >
+          <span className="text-3xl">🥅</span> Elfmeterschießen
+        </button>
         <Btn onClick={onMore}>Extra-Training</Btn>
         <Btn variant="ghost" size="md" onClick={onHome}>
           Zur Kabine

@@ -149,6 +149,25 @@ function thud(c: AudioContext, out: AudioNode, t: number) {
   n.stop(t + 0.15)
 }
 
+// Enttäuschtes "Oooh" der Menge: Rauschen, dessen Klangfarbe nach unten fällt
+function groan(c: AudioContext, out: AudioNode, t: number) {
+  const src = c.createBufferSource()
+  src.buffer = noise(c)
+  src.loop = true
+  const bp = c.createBiquadFilter()
+  bp.type = 'bandpass'
+  bp.Q.value = 3
+  bp.frequency.setValueAtTime(650, t)
+  bp.frequency.exponentialRampToValueAtTime(260, t + 1.2)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.15)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3)
+  src.connect(bp).connect(g).connect(out)
+  src.start(t)
+  src.stop(t + 1.4)
+}
+
 // Schiedsrichterpfiff (Triller)
 function whistle(c: AudioContext, out: AudioNode, t: number, dur: number) {
   const o = c.createOscillator()
@@ -171,7 +190,7 @@ function whistle(c: AudioContext, out: AudioNode, t: number, dur: number) {
   trill.stop(t + dur + 0.05)
 }
 
-export type Sound = 'correct' | 'almost' | 'wrong' | 'round' | 'trainingDay' | 'card' | 'tap'
+export type Sound = 'correct' | 'almost' | 'wrong' | 'round' | 'trainingDay' | 'card' | 'tap' | 'kick' | 'goal' | 'saved'
 
 export function play(sound: Sound) {
   const c = ac()
@@ -202,6 +221,17 @@ export function play(sound: Sound) {
       crowd(c, out, t, 4.5)
       applause(c, out, t + 0.2, 4.2, 22)
       ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(c, out, f, t + 0.1 + i * 0.12, i === 3 ? 0.7 : 0.25, 'square', 0.12))
+      break
+    case 'kick': // Schuss: kurzer, dumpfer Tritt
+      thud(c, out, t)
+      tone(c, out, 220, t, 0.06, 'square', 0.12)
+      break
+    case 'goal': // Tor: Jubel der Menge und Applaus
+      crowd(c, out, t, 2.4, 0.4)
+      applause(c, out, t + 0.1, 2.2, 16)
+      break
+    case 'saved': // Gehalten: enttäuschtes "Oooh" der Menge
+      groan(c, out, t)
       break
     case 'card': // Glitzer-Arpeggio + kurzer Applaus
       ;[1046.5, 1318.5, 1568, 2093].forEach((f, i) => tone(c, out, f, t + i * 0.07, 0.4, 'triangle', 0.3))
