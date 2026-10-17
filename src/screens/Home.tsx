@@ -10,8 +10,9 @@ import { ReminderCard } from './Reminder'
 import { SyncBadge } from '../ui/SyncBadge'
 import type { Route } from '../App'
 import { today } from '../logic/dates'
-import { levelFor, levelHint, rulesFor, seasonFor, seasonTrophy, streak, trophyAt } from '../logic/rewards'
-import { Btn, Card, FlameIcon, GoalTrack, Jersey, Meter, Star, TopBar } from '../ui/components'
+import { LEVELS, levelFor, levelHint, rulesFor, seasonFor, seasonTrophy, streak, trophyAt } from '../logic/rewards'
+import { BOOTS, newAtLevel, safeGear } from '../logic/gear'
+import { Boot, Btn, Card, FlameIcon, GoalTrack, Jersey, Meter, Star, TopBar } from '../ui/components'
 
 export function Home({ childId, go }: { childId: string; go: (r: Route) => void }) {
   const data = useLiveQuery(async () => {
@@ -40,7 +41,9 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const unlocked = ownedIds(album)
   // Ereignisse: neue Karten, danach vollständige Vereine (als "club:<id>")
   const seasonWins = goal ? seasonFor(goal, dates).won : 0
+  const levelNow = levelFor(stars, album.trainingDays, album.legacy.stars).index
   const events = [
+    ...Array.from({ length: levelNow }, (_, i) => `level:${i + 1}`),
     ...unlocked,
     ...completedClubs(unlocked).map((k) => `club:${k}`),
     ...Array.from({ length: seasonWins }, (_, i) => `season:${goal!.id}:${i + 1}`),
@@ -52,10 +55,12 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   const newCard = freshId ? CARDS.find((c) => c.id === freshId) : undefined
   const newClub = freshId?.startsWith('club:') ? CLUBS.find((k) => `club:${k.id}` === freshId) : undefined
   const wonSeason = freshId?.startsWith('season:') ? Number(freshId.split(':')[2]) : undefined
+  const newLevel = freshId?.startsWith('level:') ? Number(freshId.split(':')[1]) : undefined
   const club = currentClub(unlocked)
   const player = child.player!
 
   const lvl = levelFor(stars, album.trainingDays, album.legacy.stars)
+  const gear = safeGear(player, lvl.index, completedClubs(unlocked))
   const s = streak(dates, today())
   const log = p.log
   const minutes = log.activeSeconds / 60
@@ -83,8 +88,12 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
       />
 
       <Card className="flex items-center gap-4">
-        <button onClick={() => go({ name: 'setup', childId })} aria-label="Spieler ändern">
-          <Jersey color={player.color} number={player.number} size={92} />
+        <button onClick={() => go({ name: 'setup', childId })} aria-label="Spieler und Spind" className="relative shrink-0">
+          <Jersey color={player.color} number={player.number} size={92} pattern={gear.pattern} accent={player.accent} />
+          <span className="absolute -bottom-1 -right-2">
+            <Boot color={BOOTS.find((b) => b.id === gear.boots)?.color ?? '#f4f1e8'} size={34} />
+          </span>
+          <span className="block text-[10px] uppercase tracking-wider text-lime mt-1">Spind ›</span>
         </button>
         <div className="flex-1 min-w-0">
           <div className="font-display text-3xl font-extrabold uppercase truncate">{player.name}</div>
@@ -93,7 +102,9 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
             <div className="h-2 rounded-full bg-black/30 overflow-hidden">
               <div
                 className="h-full bg-gold rounded-full"
-                style={{ width: `${(lvl.next ? lvl.progress : 1 - lvl.starsToTrophy / 2500) * 100}%` }}
+                style={{
+                  width: `${(lvl.next ? lvl.progress : 1 - lvl.starsToTrophy / 2500) * 100}%`,
+                }}
               />
             </div>
             <div className="text-xs text-chalk/60 mt-1">{levelHint(lvl)}</div>
@@ -101,10 +112,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
           {(lvl.trophies > 0 || (season?.won ?? 0) > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-1" aria-label="Pokalvitrine">
               <span className="text-xs text-chalk/60 mr-1">Pokalvitrine</span>
-              {[
-                ...Array.from({ length: season?.won ?? 0 }, (_, i) => seasonTrophy(i)),
-                ...Array.from({ length: lvl.trophies }, (_, i) => trophyAt(i)),
-              ]
+              {[...Array.from({ length: season?.won ?? 0 }, (_, i) => seasonTrophy(i)), ...Array.from({ length: lvl.trophies }, (_, i) => trophyAt(i))]
                 .slice(0, 12)
                 .map((t, i) => (
                   <span key={i} title={t.name} className="text-lg leading-none">
@@ -130,7 +138,11 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
           </div>
           {!log.roundDone && (
             <p className="text-chalk/80">
-              {p.dueIds.length > 0 && <>Aufwärmen: {p.dueIds.length} {p.dueIds.length === 1 ? 'Wort' : 'Wörter'}. </>}
+              {p.dueIds.length > 0 && (
+                <>
+                  Aufwärmen: {p.dueIds.length} {p.dueIds.length === 1 ? 'Wort' : 'Wörter'}.{' '}
+                </>
+              )}
               {p.newIds.length > 0 && <>Neu: {p.newIds.length} Wörter.</>}
               {p.dueIds.length === 0 && p.newIds.length === 0 && <>Alle Wörter sitzen. Heute gibt es freies Training.</>}
             </p>
@@ -155,11 +167,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
                   . Weiter im Extra-Training!
                 </p>
               )}
-              <Btn
-                className="w-full"
-                variant={log.trainingDay ? 'chalk' : 'primary'}
-                onClick={() => go({ name: 'train', childId, kind: 'extra' })}
-              >
+              <Btn className="w-full" variant={log.trainingDay ? 'chalk' : 'primary'} onClick={() => go({ name: 'train', childId, kind: 'extra' })}>
                 Extra-Training
               </Btn>
             </>
@@ -230,6 +238,43 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
         </div>
       )}
 
+      {newLevel !== undefined && (
+        <div className="fixed inset-0 z-40 bg-black/80 grid place-items-center p-6">
+          <Confetti />
+          <ClubSound key={freshId} childId={childId} kind="day" />
+          <div className="text-center space-y-4 animate-pop max-w-sm">
+            <div className="font-display text-4xl font-extrabold uppercase text-lime">Aufgestiegen!</div>
+            <div className="font-display text-3xl font-extrabold uppercase">{LEVELS[newLevel].name}</div>
+            <div className="text-chalk/80">Neu in deinem Spind:</div>
+            <ul className="space-y-1 text-lg">
+              {newAtLevel(newLevel).map((t) => (
+                <li key={t}>🎁 {t}</li>
+              ))}
+            </ul>
+            <div className="grid gap-2 pt-2">
+              <Btn
+                onClick={async () => {
+                  await markCardsSeen(childId, [...(seen ?? []), ...dismissed, freshId!])
+                  go({ name: 'setup', childId })
+                }}
+              >
+                Zum Spind
+              </Btn>
+              <Btn
+                variant="ghost"
+                size="md"
+                onClick={async () => {
+                  setDismissed((d) => [...d, freshId!])
+                  await markCardsSeen(childId, [...(seen ?? []), ...dismissed, freshId!])
+                }}
+              >
+                Später
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {wonSeason && (
         <div className="fixed inset-0 z-40 bg-black/80 grid place-items-center p-6">
           <Confetti />
@@ -239,7 +284,8 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
             <div className="text-[110px] leading-none drop-shadow-[0_8px_16px_rgba(0,0,0,.5)]">{seasonTrophy(wonSeason - 1).icon}</div>
             <div className="font-display text-3xl font-extrabold uppercase">{seasonTrophy(wonSeason - 1).name}</div>
             <p className="text-chalk/80 max-w-xs mx-auto">
-              Saison {wonSeason} gewonnen! Deine Trophäe steht jetzt in der Vitrine. Saison {wonSeason + 1} beginnt. Nächstes Ziel: {seasonTrophy(wonSeason).name}!
+              Saison {wonSeason} gewonnen! Deine Trophäe steht jetzt in der Vitrine. Saison {wonSeason + 1} beginnt. Nächstes Ziel:{' '}
+              {seasonTrophy(wonSeason).name}!
             </p>
             <Btn
               onClick={async () => {
@@ -264,7 +310,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
             </div>
             <div className="font-display text-3xl font-extrabold uppercase">{newClub.name}</div>
             <p className="text-chalk/80 max-w-xs mx-auto">
-              Alle 11 Spieler sind da. Das Wappen gehört dir!
+              Alle 11 Spieler sind da. Das Wappen gehört dir, und im Spind wartet das Vereinstrikot!
               {CLUBS.indexOf(newClub) < CLUBS.length - 1 && ` Als Nächstes baust du die ${CLUBS[CLUBS.indexOf(newClub) + 1].name} auf.`}
             </p>
             <Btn
@@ -283,7 +329,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
   )
 }
 
-function ClubSound({ childId, kind = 'club' }: { childId: string; kind?: 'club' | 'season' }) {
+function ClubSound({ childId, kind = 'club' }: { childId: string; kind?: 'club' | 'season' | 'day' }) {
   useEffect(() => {
     play('trainingDay')
     praise(kind, childId, 1200)

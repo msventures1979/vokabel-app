@@ -1,19 +1,57 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 export const JERSEY_COLORS = ['#e63946', '#1d4ed8', '#f4f1e8', '#111827', '#ffc940', '#7c3aed', '#f97316', '#0ea5e9']
 
-export function Jersey({ color, number, size = 96 }: { color: string; number: number | string; size?: number }) {
-  const light = ['#f4f1e8', '#ffc940', '#0ea5e9', '#f97316'].includes(color)
+let jerseyId = 0
+
+export function Jersey({
+  color,
+  number,
+  size = 96,
+  pattern = 'plain',
+  accent,
+}: {
+  color: string
+  number: number | string
+  size?: number
+  pattern?: string
+  accent?: string
+}) {
+  const light = ['#f4f1e8', '#ffc940', '#0ea5e9', '#f97316', '#c8f560'].includes(color)
+  const kind = pattern.startsWith('club-') ? 'hoops' : pattern
+  const acc = accent ?? (kind === 'stars' ? '#ffc940' : light ? '#0b3d2a' : '#f4f1e8')
+  const [clip] = useState(() => `jersey-${++jerseyId}`)
+  const shirt = 'M30 12 L42 8 Q50 16 58 8 L70 12 L92 26 L82 44 L72 38 L72 92 L28 92 L28 38 L18 44 L8 26 Z'
+  const numLight = !light
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden>
-      <path
-        d="M30 12 L42 8 Q50 16 58 8 L70 12 L92 26 L82 44 L72 38 L72 92 L28 92 L28 38 L18 44 L8 26 Z"
-        fill={color}
-        stroke="rgba(0,0,0,.35)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
+      <defs>
+        <clipPath id={clip}>
+          <path d={shirt} />
+        </clipPath>
+      </defs>
+      <path d={shirt} fill={color} />
+      <g clipPath={`url(#${clip})`} opacity="0.9">
+        {kind === 'stripes' && [30, 44, 58].map((x) => <rect key={x} x={x} y="0" width="6" height="100" fill={acc} />)}
+        {kind === 'hoops' && [22, 40, 58, 76].map((y) => <rect key={y} x="0" y={y} width="100" height="8" fill={acc} />)}
+        {kind === 'sash' && <path d="M10 18 L28 10 L90 86 L72 96 Z" fill={acc} />}
+        {kind === 'halves' && <rect x="50" y="0" width="50" height="100" fill={acc} />}
+        {kind === 'stars' &&
+          [
+            [20, 30],
+            [80, 30],
+            [38, 30],
+            [62, 30],
+            [36, 86],
+            [64, 86],
+          ].map(([x, y]) => (
+            <text key={`${x}-${y}`} x={x} y={y} fontSize="10" textAnchor="middle" fill={acc}>
+              ★
+            </text>
+          ))}
+      </g>
+      <path d={shirt} fill="none" stroke="rgba(0,0,0,.35)" strokeWidth="2" strokeLinejoin="round" />
       <path d="M42 8 Q50 16 58 8" fill="none" stroke={light ? '#0b3d2a' : '#f4f1e8'} strokeWidth="3" />
       <text
         x="50"
@@ -22,7 +60,10 @@ export function Jersey({ color, number, size = 96 }: { color: string; number: nu
         fontFamily="Barlow Condensed, sans-serif"
         fontWeight="800"
         fontSize="36"
-        fill={light ? '#0b3d2a' : '#f4f1e8'}
+        fill={numLight ? '#f4f1e8' : '#0b3d2a'}
+        stroke={numLight ? '#0b3d2a' : '#f4f1e8'}
+        strokeWidth={kind === 'plain' ? 0 : 1.2}
+        paintOrder="stroke"
       >
         {number}
       </text>
@@ -30,7 +71,46 @@ export function Jersey({ color, number, size = 96 }: { color: string; number: nu
   )
 }
 
-type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'chalk' | 'danger'; size?: 'lg' | 'md' | 'sm' }
+// Fußballschuh
+export function Boot({ color, size = 40 }: { color: string; size?: number }) {
+  const [grad] = useState(() => `boot-${++jerseyId}`)
+  const fill = color === 'rainbow' ? `url(#${grad})` : color
+  return (
+    <svg width={size} height={size * 0.6} viewBox="0 0 60 36" aria-hidden>
+      <defs>
+        <linearGradient id={grad} x1="0" x2="1">
+          <stop offset="0" stopColor="#e63946" />
+          <stop offset=".25" stopColor="#ffc940" />
+          <stop offset=".5" stopColor="#c8f560" />
+          <stop offset=".75" stopColor="#0ea5e9" />
+          <stop offset="1" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      <path d="M6 6 L22 6 L26 16 L50 20 Q58 22 56 28 L6 28 Z" fill={fill} stroke="#0b3d2a" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M24 12 L30 18 M30 11 L35 18" stroke="#0b3d2a" strokeWidth="1.5" opacity=".5" />
+      {[12, 24, 36, 48].map((x) => (
+        <rect key={x} x={x - 2} y="28" width="4" height="5" rx="1" fill="#0b3d2a" />
+      ))}
+    </svg>
+  )
+}
+
+// Torjubel: kurze Animation über dem Bildschirm (bei richtigen Antworten)
+export function Celebration({ id, icon, name }: { id: string; icon: string; name: string }) {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center" aria-hidden>
+      <div className={`cel cel-${id} text-[110px] leading-none drop-shadow-[0_8px_14px_rgba(0,0,0,.45)]`}>{icon}</div>
+      <div className="cel-label absolute top-[38%] font-display text-3xl font-extrabold uppercase text-lime drop-shadow-[0_2px_4px_rgba(0,0,0,.6)]">
+        {name}!
+      </div>
+    </div>
+  )
+}
+
+type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'primary' | 'ghost' | 'chalk' | 'danger'
+  size?: 'lg' | 'md' | 'sm'
+}
 export function Btn({ variant = 'primary', size = 'lg', className = '', ...rest }: BtnProps) {
   const v = {
     primary: 'bg-lime text-pitch shadow-[0_4px_0_#7ea32a] active:translate-y-[3px] active:shadow-[0_1px_0_#7ea32a]',
@@ -38,7 +118,11 @@ export function Btn({ variant = 'primary', size = 'lg', className = '', ...rest 
     ghost: 'bg-white/5 text-chalk ring-1 ring-white/20 active:bg-white/10',
     danger: 'bg-flag text-white',
   }[variant]
-  const s = { lg: 'px-6 py-4 text-2xl', md: 'px-5 py-3 text-lg', sm: 'px-3 py-2 text-sm' }[size]
+  const s = {
+    lg: 'px-6 py-4 text-2xl',
+    md: 'px-5 py-3 text-lg',
+    sm: 'px-3 py-2 text-sm',
+  }[size]
   return (
     <button
       className={`font-display font-extrabold uppercase rounded-2xl transition disabled:opacity-40 disabled:pointer-events-none ${v} ${s} ${className}`}
@@ -77,14 +161,22 @@ export function GoalTrack({ value, max, prizeIcon }: { value: number; max: numbe
       <div className="absolute inset-y-0 left-1/2 w-px bg-white/25" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 rounded-full border border-white/25" />
       {/* Tor */}
-      {prizeIcon && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-3xl leading-none" aria-hidden>{prizeIcon}</span>}
+      {prizeIcon && (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-3xl leading-none" aria-hidden>
+          {prizeIcon}
+        </span>
+      )}
       <div
         className={`absolute right-0 top-2 bottom-2 ${prizeIcon ? 'w-12' : 'w-7'} rounded-l-md border-2 border-r-0 border-chalk ${reached ? 'animate-net bg-lime/30' : ''}`}
-        style={{ backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 2px, transparent 2px 6px)' }}
+        style={{
+          backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 2px, transparent 2px 6px)',
+        }}
       />
       <div
         className="absolute top-1/2 -translate-y-1/2 transition-all duration-700"
-        style={{ left: `calc(${pct * 100}% * ${prizeIcon ? 0.8 : 0.86} + 6px)` }}
+        style={{
+          left: `calc(${pct * 100}% * ${prizeIcon ? 0.8 : 0.86} + 6px)`,
+        }}
       >
         <Ball size={34} />
       </div>
@@ -152,7 +244,12 @@ export function Confetti({ count = 60 }: { count?: number }) {
         <span
           key={i}
           className="confetti-piece rounded-sm"
-          style={{ left: `${p.left}vw`, background: p.color, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}
+          style={{
+            left: `${p.left}vw`,
+            background: p.color,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+          }}
         />
       ))}
     </>
@@ -180,7 +277,12 @@ export function WordImage({ image, size = 96 }: { image: string; size?: number }
     return (
       <span
         className="inline-block rounded-full"
-        style={{ width: size * 0.85, height: size * 0.85, background: c, boxShadow: 'inset 0 0 0 3px rgba(0,0,0,.18)' }}
+        style={{
+          width: size * 0.85,
+          height: size * 0.85,
+          background: c,
+          boxShadow: 'inset 0 0 0 3px rgba(0,0,0,.18)',
+        }}
         aria-hidden
       />
     )
@@ -193,10 +295,26 @@ export function WordImage({ image, size = 96 }: { image: string; size?: number }
 }
 
 const RARITY_STYLE = {
-  bronze: { bg: 'linear-gradient(160deg,#e9b083,#a8693d)', label: 'Bronze', ring: '#7a4a28' },
-  silver: { bg: 'linear-gradient(160deg,#f1f4f7,#9aa6b2)', label: 'Silber', ring: '#6b7680' },
-  gold: { bg: 'linear-gradient(160deg,#ffe58a,#d9a21b)', label: 'Gold', ring: '#9a6f00' },
-  legend: { bg: 'linear-gradient(160deg,#c8f560,#0ea5e9 55%,#7c3aed)', label: 'Legende', ring: '#3b1d80' },
+  bronze: {
+    bg: 'linear-gradient(160deg,#e9b083,#a8693d)',
+    label: 'Bronze',
+    ring: '#7a4a28',
+  },
+  silver: {
+    bg: 'linear-gradient(160deg,#f1f4f7,#9aa6b2)',
+    label: 'Silber',
+    ring: '#6b7680',
+  },
+  gold: {
+    bg: 'linear-gradient(160deg,#ffe58a,#d9a21b)',
+    label: 'Gold',
+    ring: '#9a6f00',
+  },
+  legend: {
+    bg: 'linear-gradient(160deg,#c8f560,#0ea5e9 55%,#7c3aed)',
+    label: 'Legende',
+    ring: '#3b1d80',
+  },
 } as const
 
 // Spielerkarte im Sammelalbum
@@ -207,7 +325,14 @@ export function PlayerCard({
   size = 'md',
   onSpeak,
 }: {
-  card: { name: string; position: string; icon: string; en: string; de: string; rarity: keyof typeof RARITY_STYLE }
+  card: {
+    name: string
+    position: string
+    icon: string
+    en: string
+    de: string
+    rarity: keyof typeof RARITY_STYLE
+  }
   locked?: boolean
   hint?: string
   size?: 'xs' | 'sm' | 'md' | 'lg'
@@ -228,7 +353,10 @@ export function PlayerCard({
   const big = size === 'lg'
   return (
     <div className={`${w} aspect-[5/7] rounded-2xl p-1.5 shadow-lg`} style={{ background: r.bg }}>
-      <div className="h-full rounded-xl bg-pitch/90 text-chalk flex flex-col items-center justify-between p-2 text-center" style={{ boxShadow: `inset 0 0 0 2px ${r.ring}` }}>
+      <div
+        className="h-full rounded-xl bg-pitch/90 text-chalk flex flex-col items-center justify-between p-2 text-center"
+        style={{ boxShadow: `inset 0 0 0 2px ${r.ring}` }}
+      >
         <div className={`font-display uppercase tracking-widest ${big ? 'text-sm' : 'text-[10px]'} text-chalk/70`}>{r.label}</div>
         <div className={big ? 'text-7xl' : 'text-4xl'}>{card.icon}</div>
         <div>
@@ -256,7 +384,12 @@ function MiniCard({
   hint,
   onSpeak,
 }: {
-  card: { name: string; icon: string; en: string; rarity: keyof typeof RARITY_STYLE }
+  card: {
+    name: string
+    icon: string
+    en: string
+    rarity: keyof typeof RARITY_STYLE
+  }
   locked?: boolean
   hint?: string
   onSpeak?: () => void
@@ -272,8 +405,16 @@ function MiniCard({
       </div>
     )
   return (
-    <button onClick={onSpeak} className="w-full aspect-[5/7] rounded-xl p-[3px] shadow-md text-left" style={{ background: r.bg }} aria-label={`${card.name}, ${card.en}`}>
-      <div className="h-full rounded-[9px] bg-pitch/90 text-chalk flex flex-col items-center justify-between py-1 px-0.5 text-center" style={{ boxShadow: `inset 0 0 0 1.5px ${r.ring}` }}>
+    <button
+      onClick={onSpeak}
+      className="w-full aspect-[5/7] rounded-xl p-[3px] shadow-md text-left"
+      style={{ background: r.bg }}
+      aria-label={`${card.name}, ${card.en}`}
+    >
+      <div
+        className="h-full rounded-[9px] bg-pitch/90 text-chalk flex flex-col items-center justify-between py-1 px-0.5 text-center"
+        style={{ boxShadow: `inset 0 0 0 1.5px ${r.ring}` }}
+      >
         <div className="text-2xl leading-none mt-1">{card.icon}</div>
         <div className="font-display font-extrabold uppercase leading-[0.95] text-[11px]">{card.name}</div>
         <div className="w-full rounded-md bg-chalk text-pitch font-display font-extrabold text-[11px] leading-tight py-0.5 truncate px-0.5">{card.en}</div>

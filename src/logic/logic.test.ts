@@ -4,6 +4,7 @@ import { checkAnswer } from './answers'
 import { introduce, isDue, LEARNED_BOX, newProgress, review } from './scheduler'
 import { activeDelta, goalProgress, levelFor, levelHint, seasonFor, qualifiesAsTrainingDay, starsFor, streak } from './rewards'
 import { keeperCorner, pickShots } from './penalty'
+import { newAtLevel, safeGear } from './gear'
 import { CARDS, CLUBS, clubCards, completedClubs, nextCard, ownedIds, type AlbumStats } from './album'
 import { buildExtraPractice, buildRound, choiceOptions } from './session'
 import { starterWords } from '../data/starter'
@@ -224,5 +225,20 @@ describe('Elfmeterschießen', () => {
   it('Torwart springt bei Fehlschuss in die Schussecke, sonst woanders hin', () => {
     expect(keeperCorner(2, true)).toBe(2)
     for (let i = 0; i < 20; i++) expect(keeperCorner(1, false)).not.toBe(1)
+  })
+})
+
+describe('Spind (Ausrüstung)', () => {
+  it('gesperrte Teile fallen auf Standard zurück', () => {
+    expect(safeGear({ pattern: 'stars', boots: 'rainbow', celebration: 'crown' }, 1, [])).toEqual({ pattern: 'plain', boots: 'white', celebration: 'fist' })
+    expect(safeGear({ pattern: 'stripes', boots: 'lime', celebration: 'plane' }, 1, [])).toEqual({ pattern: 'stripes', boots: 'lime', celebration: 'plane' })
+  })
+  it('Vereinstrikot und Wappenkuss erst mit vollständigem Verein', () => {
+    expect(safeGear({ pattern: 'club-k1', celebration: 'badge' }, 5, []).pattern).toBe('plain')
+    expect(safeGear({ pattern: 'club-k1', celebration: 'badge' }, 0, ['k1'])).toMatchObject({ pattern: 'club-k1', celebration: 'badge' })
+  })
+  it('jede Liga bringt Trikot, Schuhe und Torjubel', () => {
+    for (let l = 1; l <= 5; l++) expect(newAtLevel(l)).toHaveLength(3)
+    expect(newAtLevel(1)).toEqual(['Streifen-Trikot', 'Lime-Schuhe', 'Torjubel „Flieger“ ✈️'])
   })
 })

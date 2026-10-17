@@ -153,11 +153,19 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
       </div>
 
       {/* Spielfeld mit Tor, Torwart und Ball */}
-      <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden ring-1 ring-white/10" style={{ background: 'linear-gradient(180deg,#0f4c33 0%,#1a6146 45%,#1f6e4f 100%)' }}>
+      <div
+        className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden ring-1 ring-white/10"
+        style={{
+          background: 'linear-gradient(180deg,#0f4c33 0%,#1a6146 45%,#1f6e4f 100%)',
+        }}
+      >
         {/* Tor */}
         <div
           className="absolute left-[8%] right-[8%] top-[6%] h-[46%] border-[5px] border-b-0 border-chalk rounded-t-md"
-          style={{ backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 2px, transparent 2px 10px), repeating-linear-gradient(-45deg, rgba(255,255,255,.18) 0 2px, transparent 2px 10px)' }}
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 2px, transparent 2px 10px), repeating-linear-gradient(-45deg, rgba(255,255,255,.18) 0 2px, transparent 2px 10px)',
+          }}
         />
         {/* Strafraum und Elfmeterpunkt */}
         <div className="absolute left-[2%] right-[2%] top-[52%] h-px bg-white/40" />
@@ -167,7 +175,12 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
         {/* Torwart */}
         <div
           className="absolute w-[18%] transition-transform duration-500 ease-out"
-          style={{ left: '41%', top: '20%', transform: keeper === null ? 'none' : KEEPER_DIVE[keeper], transformOrigin: '50% 90%' }}
+          style={{
+            left: '41%',
+            top: '20%',
+            transform: keeper === null ? 'none' : KEEPER_DIVE[keeper],
+            transformOrigin: '50% 90%',
+          }}
         >
           <Keeper />
         </div>
@@ -188,7 +201,9 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
         {/* Ergebnis */}
         {phase === 'result' && (
           <div className="absolute inset-x-0 bottom-[6%] text-center animate-pop">
-            <span className={`inline-block font-display text-4xl font-extrabold uppercase px-5 py-1.5 rounded-2xl ${results[results.length - 1] ? 'bg-lime text-pitch' : 'bg-flag text-white'}`}>
+            <span
+              className={`inline-block font-display text-4xl font-extrabold uppercase px-5 py-1.5 rounded-2xl ${results[results.length - 1] ? 'bg-lime text-pitch' : 'bg-flag text-white'}`}
+            >
               {results[results.length - 1] ? 'Tor!' : 'Gehalten!'}
             </span>
           </div>

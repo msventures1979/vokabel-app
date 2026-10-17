@@ -25,7 +25,7 @@ function shuffle<T>(a: T[], rng: Rng): T[] {
 
 export function pickShots(pool: Word[], progress: Map<string, Progress>, mode: 'write' | 'picture', rng: Rng = Math.random): Shot[] {
   const dir = mode === 'picture' ? 'image' : 'de-en'
-  const label = (w: Word) => (dir === 'image' ? w.image ?? '' : w.answers[0])
+  const label = (w: Word) => (dir === 'image' ? (w.image ?? '') : w.answers[0])
   const usable = pool.filter((w) => label(w))
   if (usable.length < 3) return []
 
@@ -47,8 +47,14 @@ export function pickShots(pool: Word[], progress: Map<string, Progress>, mode: '
   return chosen.map((word) => {
     const correctLabel = label(word)
     // Ablenker möglichst aus derselben Liste (gleiches Thema), sonst aus allen
-    const same = shuffle(usable.filter((w) => w.listId === word.listId && label(w) !== correctLabel), rng)
-    const other = shuffle(usable.filter((w) => w.listId !== word.listId && label(w) !== correctLabel), rng)
+    const same = shuffle(
+      usable.filter((w) => w.listId === word.listId && label(w) !== correctLabel),
+      rng,
+    )
+    const other = shuffle(
+      usable.filter((w) => w.listId !== word.listId && label(w) !== correctLabel),
+      rng,
+    )
     const distract: string[] = []
     for (const w of [...same, ...other]) {
       if (!distract.includes(label(w))) distract.push(label(w))

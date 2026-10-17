@@ -31,6 +31,10 @@ export interface Player {
   name: string
   number: number
   color: string
+  pattern?: string // Trikot-Muster oder Vereinstrikot (siehe logic/gear.ts)
+  accent?: string // Zweitfarbe des Musters
+  boots?: string
+  celebration?: string
 }
 
 // Lernmodus: 'write' = mit Schreiben (Milan), 'picture' = hören und Bilder antippen (Marlon)
