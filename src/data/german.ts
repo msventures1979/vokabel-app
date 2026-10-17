@@ -55,4 +55,17 @@ export const germanSheets: Array<{ list: WordList; words: Word[] }> = [
       ['mei-ne', 'vom', 'bei-de', 'was', 'los', 'wie', 'weil', 'ge-gen', 'sind', 'wei-ter', 'jetzt'],
     ),
   },
+  // Zusatzwörter (Grundwortschatz Klasse 2), kommen neben dem Schulblatt dazu: 2 neue pro Runde
+  {
+    list: { id: 'de-x1', title: 'Extra-Wörter 1', subject: GERMAN_SUBJECT },
+    words: germanWords('de-x1', ['Ball', 'Tor', 'spie-len', 'ren-nen', 'schnell'], ['und', 'ist', 'ein', 'mit', 'auf', 'der']),
+  },
+  {
+    list: { id: 'de-x2', title: 'Extra-Wörter 2', subject: GERMAN_SUBJECT },
+    words: germanWords('de-x2', ['Fuß', 'groß', 'Freund', 'Bru-der', 'Schu-le'], ['das', 'er', 'sie', 'hat', 'wir', 'im']),
+  },
 ]
+
+// Zusatzlisten (von uns), im Unterschied zu den Lernwörterblättern aus der Schule
+export const isExtraList = (listId: string) => listId.startsWith('de-x')
+

@@ -48,6 +48,7 @@ export interface ChildSettings {
   curriculum?: 'starter'
   german?: boolean // Deutsch-Lernwörter (nur für Grundschulkinder)
   germanInit?: boolean // Lernwörterblätter wurden einmalig zugeordnet
+  germanSeen?: string[] // eingebaute Deutsch-Listen, die schon zugeordnet wurden
 }
 
 export interface Child extends Syncable {

@@ -23,8 +23,13 @@ function shuffle<T>(a: T[], rng: Rng): T[] {
 }
 
 // Aktuelles Blatt = das mit der höchsten Nummer im Titel ("Lernwörterblatt 3" nach "Lernwörterblatt 2")
+const isExtra = (id: string) => id.startsWith('de-x')
+const EXTRA_NEW_PER_ROUND = 2
+
 export function currentSheet(lists: WordList[], pool: Word[]): WordList | undefined {
   const withWords = lists.filter((l) => pool.some((w) => w.listId === l.id))
+  const school = withWords.filter((l) => !isExtra(l.id))
+  if (school.length) return [...school].sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true })).at(-1)
   return [...withWords].sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true })).at(-1)
 }
 
@@ -38,13 +43,22 @@ export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<
     rng,
   ).slice(0, MAX_REVIEW)
 
+  // Zusatzwörter: jede Runde bis zu 2 neue (in Listenreihenfolge), wenn ein Schulblatt Hauptsache ist
+  const extraNew = isExtra(sheet.id)
+    ? []
+    : pool
+        .filter((w) => isExtra(w.listId) && w.kind !== 'lese' && !progress.get(w.id))
+        .sort((a, b) => a.listId.localeCompare(b.listId) || a.order - b.order)
+        .slice(0, EXTRA_NEW_PER_ROUND)
+  const extraLese = shuffle(pool.filter((w) => isExtra(w.listId) && w.kind === 'lese'), rng).slice(0, 3)
+
   const steps: GermanStep[] = []
-  for (const w of lern) {
+  for (const w of [...lern, ...extraNew]) {
     if ((w.syllables?.length ?? 1) > 1) steps.push({ kind: 'silben', word: w })
     steps.push({ kind: 'schreiben', word: w })
   }
   for (const w of review) steps.push({ kind: 'schreiben', word: w })
-  const rocket = shuffle([...lese, ...lern], rng)
+  const rocket = shuffle([...lese, ...lern, ...(isExtra(sheet.id) ? [] : extraLese)], rng)
   if (rocket.length) steps.push({ kind: 'rakete', words: rocket })
   return steps
 }
@@ -61,7 +75,7 @@ export function lettersFor(word: string, rng: Rng = Math.random): Tile[] {
   const first = chars[0]
   const flipped = first === first.toUpperCase() ? first.toLowerCase() : first.toUpperCase()
   if (flipped !== first) extra.push(flipped)
-  const similar: Record<string, string> = { ä: 'a', ü: 'u', ö: 'o', a: 'ä', u: 'ü', o: 'ö', b: 'd', d: 'b', s: 'z', z: 's', e: 'i', i: 'e', m: 'n', n: 'm', h: 'k', k: 'h', g: 'k', t: 'd' }
+  const similar: Record<string, string> = { ß: 's', ä: 'a', ü: 'u', ö: 'o', a: 'ä', u: 'ü', o: 'ö', b: 'd', d: 'b', s: 'z', z: 's', e: 'i', i: 'e', m: 'n', n: 'm', h: 'k', k: 'h', g: 'k', t: 'd' }
   for (const c of shuffle(chars.slice(1), rng)) {
     const s = similar[c]
     if (s && !extra.includes(s)) extra.push(s)

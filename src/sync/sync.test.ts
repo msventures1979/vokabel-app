@@ -65,7 +65,7 @@ describe('Eingebaute Inhalte', () => {
     expect(await ensureCatalog()).toBe(true)
     const m = await db.children.get('marlon')
     expect(m?.settings?.mode).toBe('picture')
-    expect(await db.assignments.where('childId').equals('marlon').count()).toBe(14) // 12 Start-Listen + 2 Lernwörterblätter
+    expect(await db.assignments.where('childId').equals('marlon').count()).toBe(16) // 12 Start-Listen + 2 Lernwörterblätter + 2 Extra-Listen
     expect(m?.settings?.german).toBe(true)
     // Englisch und Deutsch getrennt: Deutsch-Wörter tauchen im Englisch-Training nicht auf
     const { wordPool } = await import('../data/repo')

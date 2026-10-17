@@ -44,14 +44,20 @@ export async function ensureCatalog(): Promise<boolean> {
     }
 
     // Marlon: einmalig Deutsch-Lernwörter einschalten und die Lernwörterblätter zuordnen
+    // Neue eingebaute Deutsch-Listen kommen bei Marlon einmalig dazu (danach kann man sie abwählen)
     const m2 = await db.children.get('marlon')
-    if (m2 && !m2.settings?.germanInit) {
-      for (const { list } of germanSheets) {
-        const id = `marlon:${list.id}`
-        if (!(await db.assignments.get(id))) await db.assignments.put({ id, childId: 'marlon', listId: list.id, active: true, dirty: stamp })
+    if (m2) {
+      const seen = m2.settings?.germanSeen ?? (m2.settings?.germanInit ? ['de-lw1', 'de-lw2'] : [])
+      const todo = germanSheets.filter(({ list }) => !seen.includes(list.id))
+      if (todo.length) {
+        for (const { list } of todo) {
+          const id = `marlon:${list.id}`
+          if (!(await db.assignments.get(id))) await db.assignments.put({ id, childId: 'marlon', listId: list.id, active: true, dirty: stamp })
+        }
+        const german = m2.settings?.germanInit ? m2.settings?.german : true
+        await db.children.put({ ...m2, settings: { ...m2.settings, german, germanInit: true, germanSeen: [...seen, ...todo.map((t) => t.list.id)] }, dirty: stamp })
+        changed = true
       }
-      await db.children.put({ ...m2, settings: { ...m2.settings, german: true, germanInit: true }, dirty: stamp })
-      changed = true
     }
 
     // Nur virtuelle Belohnungen: frühere echte Ziele (Titel, Fotos) in Saisons umwandeln

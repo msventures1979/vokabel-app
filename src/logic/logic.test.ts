@@ -278,3 +278,18 @@ describe('Deutsch-Lernwörter', () => {
     expect(germanWords('x', ['Hund'], ['Hund'])).toHaveLength(2)
   })
 })
+
+describe('Extra-Wörter Deutsch', () => {
+  it('Schulblatt bleibt Hauptsache, pro Runde kommen 2 neue Extra-Wörter dazu', () => {
+    const pool = germanSheets.flatMap((s) => s.words)
+    const lists = germanSheets.map((s) => s.list)
+    const steps = buildGermanRound(pool, lists, new Map(), '2026-10-17')
+    const words = steps.flatMap((s) => (s.kind === 'rakete' ? [] : [s.word.en]))
+    expect(words.slice(0, 2)).toEqual(['Hase', 'Hase'])
+    expect(words).toContain('Ball')
+    expect(words).toContain('Tor')
+    expect(words).not.toContain('spielen')
+    const extra = germanSheets.filter((s) => s.list.id.startsWith('de-x')).flatMap((s) => s.words.filter((w) => w.kind === 'lern'))
+    expect(extra).toHaveLength(10)
+  })
+})
