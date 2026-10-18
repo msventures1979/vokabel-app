@@ -240,18 +240,22 @@ function ChildPanel({ childId }: { childId: string }) {
       db.assignments.where('childId').equals(childId).toArray(),
       totalStars(childId),
     ])
-    return { child, pool, prog, log, dates, goal, lists, assigns, stars }
+    const dePool = await wordPool(childId, 'de')
+    return { child, pool, dePool, prog, log, dates, goal, lists, assigns, stars }
   }, [childId])
   const [goalDays, setGoalDays] = useState<number | null>(null)
   const [saved, setSaved] = useState('')
 
   if (!data?.child) return null
-  const { child, pool, prog, log, dates, goal, lists, assigns, stars } = data
+  const { child, pool, dePool, prog, log, dates, goal, lists, assigns, stars } = data
   const rules = rulesFor(child)
   const progById = new Map(prog.map((p) => [p.wordId, p]))
   const boxes = [0, 1, 2, 3, 4, 5, LEARNED_BOX].map((b) => pool.filter((w) => (progById.get(w.id)?.box ?? 0) === b).length)
-  const hard = [...prog].filter((p) => p.errors > 0).sort((a, b) => b.errors - a.errors).slice(0, 5)
-  const wordById = new Map(pool.map((w) => [w.id, w]))
+  const wordById = new Map([...pool, ...dePool].map((w) => [w.id, w]))
+  const hard = [...prog]
+    .filter((p) => p.errors > 0 && wordById.has(p.wordId))
+    .sort((a, b) => b.errors - a.errors)
+    .slice(0, 6)
   const season = goal ? seasonFor(goal, dates) : undefined
   const days = goalDays ?? goal?.requiredDays ?? 25
   const flash = (t: string) => {
@@ -295,7 +299,15 @@ function ChildPanel({ childId }: { childId: string }) {
               {hard.map((p) => (
                 <li key={p.id} className="flex justify-between">
                   <span>
-                    {wordById.get(p.wordId)?.en} = {wordById.get(p.wordId)?.de}
+                    {wordById.get(p.wordId)!.de ? (
+                      <>
+                        {wordById.get(p.wordId)!.en} = {wordById.get(p.wordId)!.de}
+                      </>
+                    ) : (
+                      <>
+                        {wordById.get(p.wordId)!.en} <span className="text-chalk/50">(Deutsch)</span>
+                      </>
+                    )}
                   </span>
                   <span className="text-flag">{p.errors}× falsch</span>
                 </li>
