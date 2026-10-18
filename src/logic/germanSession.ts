@@ -3,10 +3,13 @@
 import { isDue } from './scheduler'
 import type { DateStr } from './dates'
 import type { Progress, Word, WordList } from './types'
+import { BLUMEN, REIMPAARE } from '../data/reime'
 
 type Rng = () => number
 
 export type GermanStep =
+  | { kind: 'blume'; end: string; petals: { front: string; real: boolean }[] }
+  | { kind: 'reim'; word: string; options: string[]; correct: string }
   | { kind: 'silben'; word: Word }
   | { kind: 'schreiben'; word: Word }
   | { kind: 'rakete'; words: Word[] }
@@ -58,6 +61,7 @@ export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<
     steps.push({ kind: 'schreiben', word: w })
   }
   for (const w of review) steps.push({ kind: 'schreiben', word: w })
+  steps.push(...rhymeSteps(rng))
   const rocket = shuffle([...lese, ...lern, ...(isExtra(sheet.id) ? [] : extraLese)], rng)
   if (rocket.length) steps.push({ kind: 'rakete', words: rocket })
   return steps
@@ -86,4 +90,25 @@ export function lettersFor(word: string, rng: Rng = Math.random): Tile[] {
     if (!extra.includes(r)) extra.push(r)
   }
   return shuffle([...chars, ...extra], rng).map((ch, id) => ({ id, ch }))
+}
+
+// Reim-Übungen: eine Silben-Blume (3 echte Wörter + 1 Scherz-Blatt) und zwei Reimpaare
+export function rhymeSteps(rng: Rng = Math.random): GermanStep[] {
+  const b = BLUMEN[Math.floor(rng() * BLUMEN.length)]
+  const real = shuffle(b.real, rng).slice(0, 3)
+  const fake = b.fake[Math.floor(rng() * b.fake.length)]
+  const blume: GermanStep = {
+    kind: 'blume',
+    end: b.end,
+    petals: shuffle([...real.map((front) => ({ front, real: true })), { front: fake, real: false }], rng),
+  }
+  const pairs = shuffle(REIMPAARE, rng).slice(0, 2)
+  const reime: GermanStep[] = pairs.map(([word, rhyme]) => {
+    const others = shuffle(
+      REIMPAARE.filter(([w]) => w !== word).map(([, r]) => r),
+      rng,
+    ).slice(0, 2)
+    return { kind: 'reim', word, correct: rhyme, options: shuffle([rhyme, ...others], rng) }
+  })
+  return [blume, ...reime]
 }

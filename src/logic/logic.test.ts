@@ -263,7 +263,7 @@ describe('Deutsch-Lernwörter', () => {
     const lists = germanSheets.map((s) => s.list)
     const prog = new Map([['de-lw1:buch', { id: 'm:de-lw1:buch', childId: 'm', wordId: 'de-lw1:buch', box: 2, due: '2026-10-01', wrongStreak: 0, errors: 1 }]]) as never
     const steps = buildGermanRound(pool, lists, prog, '2026-10-17')
-    const kinds = steps.map((s) => (s.kind === 'rakete' ? 'rakete' : `${s.kind}:${s.word.en}`))
+    const kinds = steps.map((s) => (s.kind === 'silben' || s.kind === 'schreiben' ? `${s.kind}:${s.word.en}` : s.kind))
     expect(kinds.slice(0, 3)).toEqual(['silben:Hase', 'schreiben:Hase', 'schreiben:Hund'])
     expect(kinds).toContain('schreiben:Buch') // fällig aus Blatt 1
     expect(kinds).not.toContain('schreiben:laut') // nicht fällig
@@ -284,12 +284,29 @@ describe('Extra-Wörter Deutsch', () => {
     const pool = germanSheets.flatMap((s) => s.words)
     const lists = germanSheets.map((s) => s.list)
     const steps = buildGermanRound(pool, lists, new Map(), '2026-10-17')
-    const words = steps.flatMap((s) => (s.kind === 'rakete' ? [] : [s.word.en]))
+    const words = steps.flatMap((s) => (s.kind === 'silben' || s.kind === 'schreiben' ? [s.word.en] : []))
     expect(words.slice(0, 2)).toEqual(['Hase', 'Hase'])
     expect(words).toContain('Ball')
     expect(words).toContain('Tor')
     expect(words).not.toContain('spielen')
     const extra = germanSheets.filter((s) => s.list.id.startsWith('de-x')).flatMap((s) => s.words.filter((w) => w.kind === 'lern'))
     expect(extra).toHaveLength(10)
+  })
+})
+
+describe('Reim-Übungen', () => {
+  it('jede Runde: eine Silben-Blume mit genau einem Scherz-Blatt und zwei Reimpaare', async () => {
+    const { rhymeSteps } = await import('./germanSession')
+    const { REIMPAARE } = await import('../data/reime')
+    for (let i = 0; i < 20; i++) {
+      const [blume, r1, r2] = rhymeSteps()
+      if (blume.kind !== 'blume' || r1.kind !== 'reim' || r2.kind !== 'reim') throw new Error('falsche Reihenfolge')
+      expect(blume.petals.filter((p) => !p.real)).toHaveLength(1)
+      for (const r of [r1, r2]) {
+        expect(r.options).toHaveLength(3)
+        expect(new Set(r.options).size).toBe(3)
+        expect(REIMPAARE.some(([w, x]) => w === r.word && x === r.correct)).toBe(true)
+      }
+    }
   })
 })

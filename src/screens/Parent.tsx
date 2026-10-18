@@ -349,22 +349,22 @@ function ChildPanel({ childId }: { childId: string }) {
 
       <Card className="space-y-3">
         <div className="font-display text-xl font-extrabold uppercase">Training und Regeln</div>
-        <div className="grid grid-cols-2 gap-2">
-          {(['write', 'picture'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => updateChildSettings(childId, { mode: m })}
-              className={`rounded-xl py-2 text-sm font-semibold ${(child.settings?.mode ?? 'write') === m ? 'bg-chalk text-pitch' : 'bg-white/5 ring-1 ring-white/15'}`}
-            >
-              {m === 'write' ? 'Mit Schreiben' : 'Hören und Bilder'}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-chalk/60">
-          {(child.settings?.mode ?? 'write') === 'write'
-            ? 'Für Schulkinder mit Englisch: Auswahl und selbst tippen.'
-            : 'Für Kinder ohne Englisch in der Schule: hören, Bilder antippen, laut nachsprechen. Kein Schreiben.'}
-        </p>
+        <label className="flex items-center justify-between gap-3 py-1">
+          <span>
+            Englisch schreiben
+            <span className="block text-xs text-chalk/60">
+              {(child.settings?.mode ?? 'write') === 'write'
+                ? 'An: Englische Wörter werden auch selbst getippt (für Schulkinder mit Englisch).'
+                : 'Aus: nur hören, Bilder antippen und nachsprechen. Kein Schreiben auf Englisch.'}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-6 w-6 accent-lime"
+            checked={(child.settings?.mode ?? 'write') === 'write'}
+            onChange={(e) => updateChildSettings(childId, { mode: e.target.checked ? 'write' : 'picture' })}
+          />
+        </label>
         <label className="flex items-center justify-between gap-3 py-1">
           <span>
             Deutsch-Lernwörter

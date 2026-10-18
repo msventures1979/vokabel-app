@@ -85,11 +85,165 @@ export function GermanTraining({ childId, go }: { childId: string; go: (r: Route
       <div className="h-2 rounded-full bg-black/30 overflow-hidden">
         <div className="h-full bg-lime rounded-full transition-all" style={{ width: `${(idx / steps.length) * 100}%` }} />
       </div>
+      {step.kind === 'blume' && <BlumeStep key={idx} end={step.end} petals={step.petals} onDone={(ok) => answer(ok ? STARS_SILBEN : 0, ok)} onNext={next} />}
+      {step.kind === 'reim' && (
+        <ReimStep key={idx} word={step.word} options={step.options} correct={step.correct} onDone={(ok) => answer(ok ? STARS_SILBEN : 0, ok)} onNext={next} />
+      )}
       {step.kind === 'silben' && <SilbenStep key={idx} word={step.word} onDone={(ok) => answer(ok ? STARS_SILBEN : 0, ok)} onNext={next} />}
       {step.kind === 'schreiben' && (
         <SchreibenStep key={idx} word={step.word} onDone={(errors) => answer(errors === 0 ? STARS_SCHREIBEN : errors === 1 ? 3 : 0, errors === 0, step.word.id)} onNext={next} />
       )}
       {step.kind === 'rakete' && <RaketeStep key={idx} words={step.words} onWord={() => answer(STARS_LESEN, true)} onNext={next} />}
+    </div>
+  )
+}
+
+// ---------- Silben-Blume (Reime) ----------
+
+function BlumeStep({
+  end,
+  petals,
+  onDone,
+  onNext,
+}: {
+  end: string
+  petals: { front: string; real: boolean }[]
+  onDone: (ok: boolean) => void
+  onNext: () => void
+}) {
+  const [found, setFound] = useState<string[]>([])
+  const [wrong, setWrong] = useState<string | null>(null)
+  const [msg, setMsg] = useState('')
+  const [errors, setErrors] = useState(0)
+  const realCount = petals.filter((p) => p.real).length
+  const finished = found.length === realCount
+  const n = petals.length
+
+  const tap = (p: { front: string; real: boolean }) => {
+    if (finished || found.includes(p.front)) return
+    if (p.real) {
+      play('tap')
+      speakDe(p.front + end)
+      setMsg('')
+      const f = [...found, p.front]
+      setFound(f)
+      if (f.length === realCount) {
+        setTimeout(() => play('correct'), 700)
+        onDone(errors === 0)
+      }
+    } else {
+      setErrors((e) => e + 1)
+      setWrong(p.front)
+      play('wrong')
+      setMsg(`„${p.front}${end}“ gibt es nicht. Das ist das Scherz-Blatt!`)
+      setTimeout(() => setWrong(null), 600)
+    }
+  }
+
+  return (
+    <div className="space-y-4 text-center animate-rise">
+      <div className="text-sm uppercase tracking-widest text-chalk/60">Silben-Blume</div>
+      <div className="text-chalk/80">Tippe die Blätter an, die mit „{end}“ ein Wort ergeben. Ein Blatt ist ein Scherz!</div>
+      <div className="relative mx-auto h-64 w-64">
+        {petals.map((p, i) => {
+          const angle = (i / n) * Math.PI * 2 - Math.PI / 2
+          const x = 50 + Math.cos(angle) * 34
+          const y = 50 + Math.sin(angle) * 34
+          const ok = found.includes(p.front)
+          return (
+            <button
+              key={p.front}
+              onClick={() => tap(p)}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 h-20 w-20 rounded-full font-display text-2xl font-extrabold shadow-[0_3px_0_rgba(0,0,0,.25)] transition ${
+                ok ? 'bg-lime text-pitch' : wrong === p.front ? 'bg-flag text-white animate-shake' : 'bg-[#f9a8d4] text-pitch'
+              }`}
+              style={{ left: `${x}%`, top: `${y}%` }}
+            >
+              {p.front}
+            </button>
+          )
+        })}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-20 w-20 rounded-full bg-gold text-pitch grid place-items-center font-display text-3xl font-extrabold ring-4 ring-[#f59e0b]">
+          {end}
+        </div>
+      </div>
+      <div className="min-h-[56px] space-y-1">
+        <div className="flex flex-wrap justify-center gap-2">
+          {found.map((f) => (
+            <button key={f} onClick={() => speakDe(f + end)} className="rounded-xl bg-chalk text-pitch px-3 py-1 font-display text-2xl font-extrabold">
+              {f}
+              <span className="text-[#d97706]">{end}</span>
+            </button>
+          ))}
+        </div>
+        {msg && <div className="text-gold text-sm font-semibold">{msg}</div>}
+      </div>
+      {finished && (
+        <div className="space-y-3 animate-pop">
+          <div className="font-display text-3xl font-extrabold uppercase text-lime">Alle Reime gefunden!</div>
+          <Btn onClick={onNext}>Weiter</Btn>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------- Reimpaar finden ----------
+
+function ReimStep({ word, options, correct, onDone, onNext }: { word: string; options: string[]; correct: string; onDone: (ok: boolean) => void; onNext: () => void }) {
+  const [picked, setPicked] = useState<string | null>(null)
+  const [wrong, setWrong] = useState<string[]>([])
+  const done = picked === correct
+
+  useEffect(() => {
+    const t = setTimeout(() => speakDe(word), 300)
+    return () => clearTimeout(t)
+  }, [word])
+
+  const pick = (o: string) => {
+    if (done) return
+    speakDe(o)
+    if (o === correct) {
+      setPicked(o)
+      setTimeout(() => play('correct'), 500)
+      onDone(wrong.length === 0)
+    } else {
+      setWrong((w) => [...w, o])
+      setTimeout(() => play('wrong'), 450)
+    }
+  }
+
+  return (
+    <div className="space-y-5 text-center animate-rise">
+      <div className="text-sm uppercase tracking-widest text-chalk/60">Reimwort finden</div>
+      <div className="text-chalk/80">Was reimt sich auf …</div>
+      <button onClick={() => speakDe(word)} className="mx-auto flex items-center gap-3 rounded-2xl bg-chalk text-pitch px-5 py-3">
+        <SpeakerIcon size={26} />
+        <span className="font-display text-4xl font-extrabold">{word}</span>
+      </button>
+      <div className="grid gap-3">
+        {options.map((o) => (
+          <button
+            key={o}
+            onClick={() => pick(o)}
+            disabled={wrong.includes(o) || done}
+            className={`rounded-2xl px-4 py-4 font-display text-3xl font-extrabold transition ${
+              picked === o ? 'bg-lime text-pitch animate-pop' : wrong.includes(o) ? 'bg-black/30 text-chalk/30 line-through' : 'bg-white/10 ring-1 ring-white/20'
+            }`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+      <div className="text-xs text-chalk/60">Tipp: Antippen liest das Wort vor.</div>
+      {done && (
+        <div className="space-y-3 animate-pop">
+          <div className="font-display text-3xl font-extrabold uppercase text-lime">
+            {word} – {correct}. Reimt sich!
+          </div>
+          <Btn onClick={onNext}>Weiter</Btn>
+        </div>
+      )}
     </div>
   )
 }
@@ -117,7 +271,7 @@ function SilbenStep({ word, onDone, onNext }: { word: Word; onDone: (ok: boolean
       setPlaced(p)
       if (p.length === syl.length) {
         play('correct')
-        speakDe(syl.join(' - '), true)
+        speakDe(word.en, syl)
         onDone(errors === 0)
       }
     } else {
@@ -129,7 +283,7 @@ function SilbenStep({ word, onDone, onNext }: { word: Word; onDone: (ok: boolean
   }
 
   return (
-    <div className="space-y-6 text-center animate-rise">
+    <div className="space-y-6 text-center animate-rise" data-word={word.en} data-syl={JSON.stringify(syl)}>
       <div className="text-sm uppercase tracking-widest text-chalk/60">Silben-Bögen</div>
       <div className="text-chalk/80">Tippe die Silben in der richtigen Reihenfolge!</div>
       <button onClick={() => speakDe(word.en)} className="mx-auto flex items-center gap-2 rounded-full bg-chalk text-pitch px-4 py-2 font-semibold">
@@ -210,7 +364,7 @@ function SchreibenStep({ word, onDone, onNext }: { word: Word; onDone: (errors: 
   }
 
   return (
-    <div className="space-y-5 text-center animate-rise">
+    <div className="space-y-5 text-center animate-rise" data-word={word.en}>
       <div className="text-sm uppercase tracking-widest text-chalk/60">Hören und Schreiben</div>
       <button onClick={() => speakDe(word.en)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
         <span className="h-16 w-16 rounded-full bg-chalk text-pitch grid place-items-center">
