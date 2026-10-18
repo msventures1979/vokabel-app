@@ -56,10 +56,11 @@ export function GermanTraining({ childId, go }: { childId: string; go: (r: Route
     setDone({ before: before.current!, after, perfect, isRound: true, rules: rules.current })
   }
 
-  if (penalty) return <Penalty childId={childId} onDone={() => go({ name: 'home', childId })} />
+  if (penalty) return <Penalty childId={childId} subject="de" onDone={() => go({ name: 'home', childId })} />
   if (done)
     return (
       <Summary
+        lang="de"
         childId={childId}
         done={done}
         earned={earned}

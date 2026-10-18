@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { db } from '../data/db'
 import { progressMap, recordAnswer, wordPool } from '../data/repo'
 import { GOAL_STARS, keeperCorner, pickShots, SHOTS, type Shot } from '../logic/penalty'
-import { speak } from '../lib/speech'
+import { speak, speakDe } from '../lib/speech'
 import { play, praise } from '../lib/sounds'
 import { Ball, Btn, Confetti, SpeakerIcon, Star, TopBar, WordImage } from '../ui/components'
 
@@ -17,7 +17,9 @@ const CORNER = [
 const SPOT = { x: 50, y: 84 }
 const KEEPER_DIVE = ['translate(-115%, -6%) rotate(-62deg)', 'translate(0, -14%) scale(1.06)', 'translate(115%, -6%) rotate(62deg)']
 
-export function Penalty({ childId, onDone }: { childId: string; onDone: () => void }) {
+export function Penalty({ childId, onDone, subject = 'en' }: { childId: string; onDone: () => void; subject?: 'en' | 'de' }) {
+  const de = subject === 'de'
+  const say = (w: { en: string }) => (de ? speakDe(w.en) : speak(w.en))
   const [shots, setShots] = useState<Shot[] | null>(null)
   const [i, setI] = useState(0)
   const [phase, setPhase] = useState<Phase>('aim')
@@ -29,17 +31,17 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
 
   useEffect(() => {
     ;(async () => {
-      const [pool, prog, child] = await Promise.all([wordPool(childId), progressMap(childId), db.children.get(childId)])
-      setShots(pickShots(pool, prog, child?.settings?.mode ?? 'write'))
+      const [pool, prog, child] = await Promise.all([wordPool(childId, subject), progressMap(childId), db.children.get(childId)])
+      setShots(pickShots(pool, prog, de ? 'de' : (child?.settings?.mode ?? 'write')))
     })()
-  }, [childId])
+  }, [childId, de, subject])
 
   const shot = shots?.[i]
 
   // Marlon hört das Wort zu Beginn jedes Elfers
   useEffect(() => {
-    if (shot?.dir === 'image' && phase === 'aim') {
-      const t = setTimeout(() => speak(shot.word.en), 350)
+    if ((shot?.dir === 'image' || shot?.dir === 'hear-de') && phase === 'aim') {
+      const t = setTimeout(() => say(shot.word), 350)
       return () => clearTimeout(t)
     }
   }, [shot, phase])
@@ -70,7 +72,7 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
       setPhase('result')
       play(hit ? 'goal' : 'saved')
       if (!hit) setRebound(true)
-      setTimeout(() => speak(shot.word.en), hit ? 900 : 700)
+      setTimeout(() => say(shot.word), hit ? 900 : 700)
     }, 600)
   }
 
@@ -79,7 +81,7 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
       setPhase('end')
       if (goals === shots.length) {
         play('trainingDay')
-        praise('day', childId, 1200)
+        praise('day', childId, 1200, de ? 'de' : 'en')
       } else if (goals >= 3) play('goal')
       return
     }
@@ -143,11 +145,11 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
             <div className="font-display text-4xl font-extrabold leading-tight">{shot!.word.de}</div>
           </>
         ) : (
-          <button onClick={() => speak(shot!.word.en)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
+          <button onClick={() => say(shot!.word)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
             <span className="h-14 w-14 rounded-full bg-chalk text-pitch grid place-items-center">
               <SpeakerIcon size={28} />
             </span>
-            <span className="text-sm text-chalk/70">Hör gut zu und schieß auf das richtige Bild!</span>
+            <span className="text-sm text-chalk/70">{de ? 'Hör gut zu und schieß auf das richtige Wort!' : 'Hör gut zu und schieß auf das richtige Bild!'}</span>
           </button>
         )}
       </div>
@@ -215,7 +217,7 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
         <div className="space-y-3">
           <div className="text-center">
             {!results[results.length - 1] && <div className="text-sm text-chalk/70">Richtig wäre gewesen:</div>}
-            <button onClick={() => speak(shot!.word.en)} className="inline-flex items-center gap-2 font-display text-3xl font-extrabold">
+            <button onClick={() => say(shot!.word)} className="inline-flex items-center gap-2 font-display text-3xl font-extrabold">
               {shot!.dir === 'image' && shot!.word.image && <WordImage image={shot!.word.image} size={44} />}
               {shot!.word.en} <SpeakerIcon size={22} />
             </button>
@@ -235,7 +237,7 @@ export function Penalty({ childId, onDone }: { childId: string; onDone: () => vo
               {shot!.dir === 'image' ? (
                 <WordImage image={o} size={52} />
               ) : (
-                <span className="font-display text-xl font-extrabold leading-tight break-words">{o}</span>
+                <span className={`font-display font-extrabold leading-tight break-words ${de ? 'text-2xl' : 'text-xl'}`}>{o}</span>
               )}
               <span className="text-[10px] uppercase tracking-wider opacity-60">{['links', 'Mitte', 'rechts'][k]}</span>
             </button>

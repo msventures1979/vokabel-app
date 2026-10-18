@@ -244,13 +244,17 @@ export function play(sound: Sound) {
 const PRAISE = { card: 5, day: 3, club: 2, season: 2 } as const
 const NAMED = ['milan', 'marlon']
 let praiseAudio: HTMLAudioElement | null = null
-export function praise(kind: keyof typeof PRAISE, childId: string, delayMs = 0) {
+// Deutsches Lob (für die Deutsch-Übung), nur für den Trainingstag
+const PRAISE_DE: Partial<Record<keyof typeof PRAISE, number>> = { day: 3 }
+export function praise(kind: keyof typeof PRAISE, childId: string, delayMs = 0, lang: 'en' | 'de' = 'en') {
   if (!soundOn() || !NAMED.includes(childId) || typeof Audio === 'undefined') return
-  const i = Math.floor(Math.random() * PRAISE[kind])
+  const n = lang === 'de' ? PRAISE_DE[kind] : PRAISE[kind]
+  if (!n) return
+  const i = Math.floor(Math.random() * n)
   setTimeout(() => {
     try {
       praiseAudio?.pause()
-      praiseAudio = new Audio(`/audio/praise/${kind}-${childId}-${i}.mp3`)
+      praiseAudio = new Audio(`/audio/praise/${kind}-${childId}${lang === 'de' ? '-de' : ''}-${i}.mp3`)
       void praiseAudio.play().catch(() => {})
     } catch {
       /* ignorieren */

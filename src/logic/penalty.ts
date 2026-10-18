@@ -9,7 +9,7 @@ type Rng = () => number
 
 export interface Shot {
   word: Word
-  dir: 'de-en' | 'image' // Milan: deutsches Wort → englisches wählen; Marlon: englisches Wort hören → Bild wählen
+  dir: 'de-en' | 'image' | 'hear-de' // Milan: deutsches Wort → englisches wählen; Marlon: englisches Wort hören → Bild wählen; Deutsch: Wort hören → richtig geschriebenes Wort wählen
   options: string[] // genau 3, in Reihenfolge links, Mitte, rechts
   correct: number // Index der richtigen Antwort
 }
@@ -23,10 +23,12 @@ function shuffle<T>(a: T[], rng: Rng): T[] {
   return b
 }
 
-export function pickShots(pool: Word[], progress: Map<string, Progress>, mode: 'write' | 'picture', rng: Rng = Math.random): Shot[] {
-  const dir = mode === 'picture' ? 'image' : 'de-en'
-  const label = (w: Word) => (dir === 'image' ? (w.image ?? '') : w.answers[0])
-  const usable = pool.filter((w) => label(w))
+export function pickShots(pool: Word[], progress: Map<string, Progress>, mode: 'write' | 'picture' | 'de', rng: Rng = Math.random): Shot[] {
+  const dir = mode === 'de' ? 'hear-de' : mode === 'picture' ? 'image' : 'de-en'
+  const label = (w: Word) => (dir === 'image' ? (w.image ?? '') : dir === 'hear-de' ? w.en : w.answers[0])
+  // Deutsch: bevorzugt Lernwörter; reichen die nicht, auch Lesewörter
+  const lern = dir === 'hear-de' ? pool.filter((w) => w.kind !== 'lese') : pool
+  const usable = (lern.length >= SHOTS ? lern : pool).filter((w) => label(w))
   if (usable.length < 3) return []
 
   // Kandidaten: schon eingeführte Wörter, die schwersten zuerst; reicht das nicht, auch neue Wörter

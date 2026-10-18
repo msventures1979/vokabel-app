@@ -310,3 +310,18 @@ describe('Reim-Übungen', () => {
     }
   })
 })
+
+describe('Elfmeter Deutsch', () => {
+  it('nimmt nur deutsche Lernwörter, Antworten sind die Wörter selbst', async () => {
+    const { pickShots } = await import('./penalty')
+    const { germanSheets } = await import('../data/german')
+    const pool = germanSheets[1].words
+    const shots = pickShots(pool, new Map(), 'de', () => 0.3)
+    expect(shots).toHaveLength(5)
+    for (const s of shots) {
+      expect(s.dir).toBe('hear-de')
+      expect(s.word.kind).toBe('lern')
+      expect(s.options[s.correct]).toBe(s.word.en)
+    }
+  })
+})

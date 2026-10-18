@@ -645,8 +645,10 @@ export function Summary({
   onMore,
   onPenalty,
   moreLabel = 'Extra-Training',
+  lang = 'en',
 }: {
   childId: string
+  lang?: 'en' | 'de'
   onPenalty: () => void
   moreLabel?: string
   done: {
@@ -664,7 +666,7 @@ export function Summary({
   const newTrainingDay = after.trainingDay && !before.trainingDay
   useEffect(() => {
     play(newTrainingDay ? 'trainingDay' : 'round')
-    if (newTrainingDay) praise('day', childId, 1300)
+    if (newTrainingDay) praise('day', childId, 1300, lang)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const minutes = Math.floor(after.activeSeconds / 60)
