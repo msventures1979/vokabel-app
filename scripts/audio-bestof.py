@@ -20,7 +20,8 @@ NUM = {'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6
 ALT = {'door': {'daw', 'door'}, 'four': {'4', 'for', 'fore'}, 'two': {'2', 'to', 'too'}, 'to': {'to', 'too', '2'}, 'eye': {'i', 'eye', 'aye'},
        'a': {'a', 'uh', 'ah'}, 'in': {'in', 'inn'}, 'year': {'year', 'yeah'}, 'ear': {'ear', 'here', 'year'}, 'hair': {'hair', 'here'},
        'tv': {'tv', 't v', 'tvs'}, 'no': {'no', 'know'}, 'sun': {'sun', 'son'}, 'write': {'write', 'right'}, 'red': {'red', 'read'},
-       'key': {'key', 'kee'}, 'new': {'new', 'knew'}, 'pear': {'pear', 'pair'}}
+       'key': {'key', 'kee'}, 'new': {'new', 'knew'}, 'pear': {'pear', 'pair'},
+       'here': {'here', 'hear'}, 'for': {'for', '4', 'four'}, 'board': {'board', 'bored'}, 'be': {'be', 'bee', 'b'}, 'at': {'at', 'add'}, 'on': {'on', 'an'}}
 
 
 def norm(s):

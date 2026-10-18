@@ -47,3 +47,20 @@ describe('Ablauf eines Tages', () => {
     expect(g?.requiredDays).toBe(25)
   })
 })
+
+describe('Neue eingebaute Englisch-Liste', () => {
+  it('Unit 1 – Station 1 landet einmalig bei Milan, nach Unit 1', async () => {
+    const { ensureCatalog } = await import('./catalog')
+    const { wordPool } = await import('./repo')
+    await ensureCatalog()
+    expect(await db.assignments.get('milan:en-u1s1')).toMatchObject({ childId: 'milan', active: true })
+    expect(await db.assignments.get('marlon:en-u1s1')).toBeUndefined()
+    const pool = await wordPool('milan')
+    expect(pool.filter((w) => w.listId === 'en-u1s1')).toHaveLength(43)
+    expect(pool[0].listId).toBe('en-u1') // Unit 1 kommt zuerst
+    // abgewählt bleibt abgewählt
+    await db.assignments.update('milan:en-u1s1', { active: false })
+    await ensureCatalog()
+    expect((await db.assignments.get('milan:en-u1s1'))?.active).toBe(false)
+  })
+})

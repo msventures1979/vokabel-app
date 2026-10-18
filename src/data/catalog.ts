@@ -2,13 +2,16 @@
 // auf dem Eltern-Gerät (oder im Betrieb ohne Konto) automatisch in der Datenbank.
 import { db } from './db'
 import { unit1, unit1Words } from './en-unit1'
+import { unit1Station1, unit1Station1Words } from './en-unit1-station1'
 import { isStarterList, starterLists, starterWords } from './starter'
 import { germanSheets } from './german'
 import type { Word, WordList } from '../logic/types'
 import { today } from '../logic/dates'
 
-const CATALOG: Array<{ list: WordList; words: Word[] }> = [
+// assign: Kind, dem die Liste beim ersten Einspielen automatisch zugeordnet wird
+const CATALOG: Array<{ list: WordList; words: Word[]; assign?: string }> = [
   { list: unit1, words: unit1Words },
+  { list: unit1Station1, words: unit1Station1Words, assign: 'milan' },
   ...starterLists.map((list) => ({ list, words: starterWords.filter((w) => w.listId === list.id) })),
   ...germanSheets,
 ]
@@ -20,10 +23,14 @@ export async function ensureCatalog(): Promise<boolean> {
   const stamp = Date.now()
   let changed = false
   await db.transaction('rw', db.lists, db.words, db.children, db.assignments, db.goals, async () => {
-    for (const { list, words } of CATALOG) {
+    for (const { list, words, assign } of CATALOG) {
       if (await db.lists.get(list.id)) continue
       await db.lists.put({ ...list, dirty: stamp })
       await db.words.bulkPut(words.map((w) => ({ ...w, dirty: stamp })))
+      if (assign && (await db.children.get(assign))) {
+        const id = `${assign}:${list.id}`
+        if (!(await db.assignments.get(id))) await db.assignments.put({ id, childId: assign, listId: list.id, active: true, dirty: stamp })
+      }
       changed = true
     }
 
