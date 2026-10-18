@@ -25,10 +25,6 @@ export function addDays(s: DateStr, n: number): DateStr {
   return toDateStr(d)
 }
 
-export function daysBetween(a: DateStr, b: DateStr): number {
-  return Math.round((parseDate(b).getTime() - parseDate(a).getTime()) / 86_400_000)
-}
-
 // ISO-Kalenderwoche als Schlüssel "YYYY-Www", für den Wochen-Joker.
 export function isoWeekKey(s: DateStr): string {
   const d = parseDate(s)

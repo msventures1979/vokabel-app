@@ -38,7 +38,7 @@ export function GermanImport({ childId, childName, nextNumber }: { childId: stri
     setMsg('')
     try {
       const image = await shrink(file)
-      const { data, error } = await supa().functions.invoke('import-vocab', { body: { image, mediaType: 'image/jpeg', kind: 'lernwoerter' } })
+      const { data, error } = await (await supa()).functions.invoke('import-vocab', { body: { image, mediaType: 'image/jpeg', kind: 'lernwoerter' } })
       if (error) {
         let text = error.message
         try {

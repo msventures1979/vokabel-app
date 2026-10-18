@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { getMeta, seed } from './data/db'
 import { ensureCatalog } from './data/catalog'
 import { initSync, useSyncState } from './sync/account'
-import { Welcome } from './screens/Welcome'
 import { ProfilePicker } from './screens/ProfilePicker'
-import { PlayerSetup } from './screens/PlayerSetup'
 import { Home } from './screens/Home'
 import { Training, type TrainingKind } from './screens/Training'
-import { Parent } from './screens/Parent'
-import { Album } from './screens/Album'
 import { GermanTraining } from './screens/GermanTraining'
+
+// Selten genutzte Bildschirme werden erst beim Öffnen geladen (schnellerer Start)
+const Welcome = lazy(() => import('./screens/Welcome').then((m) => ({ default: m.Welcome })))
+const PlayerSetup = lazy(() => import('./screens/PlayerSetup').then((m) => ({ default: m.PlayerSetup })))
+const Parent = lazy(() => import('./screens/Parent').then((m) => ({ default: m.Parent })))
+const Album = lazy(() => import('./screens/Album').then((m) => ({ default: m.Album })))
 
 export type Route =
   | { name: 'pick' }
@@ -50,8 +52,7 @@ export default function App() {
 
   useEffect(() => {
     ;(async () => {
-      await initSync()
-      await seed()
+      await Promise.all([initSync(), seed()])
       if (!(await getMeta('familyId'))) await ensureCatalog() // ohne Konto: Listen lokal ergänzen
       setLocalOnly(!!(await getMeta('localOnly')))
       setReady(true)
@@ -80,24 +81,28 @@ export default function App() {
   if (sync.configured && !sync.familyId && !localOnly)
     return (
       <div className="min-h-full max-w-xl mx-auto px-4 pb-8 pt-[max(12px,env(safe-area-inset-top))]">
-        <Welcome
-          onDone={async () => {
-            setLocalOnly(!!(await getMeta('localOnly')))
-            go({ name: 'pick' })
-          }}
-        />
+        <Suspense fallback={null}>
+          <Welcome
+            onDone={async () => {
+              setLocalOnly(!!(await getMeta('localOnly')))
+              go({ name: 'pick' })
+            }}
+          />
+        </Suspense>
       </div>
     )
 
   return (
     <div className="min-h-full max-w-xl mx-auto px-4 pb-8 pt-[max(12px,env(safe-area-inset-top))]">
-      {route.name === 'pick' && <ProfilePicker go={go} />}
-      {route.name === 'setup' && <PlayerSetup childId={route.childId} go={go} />}
-      {route.name === 'home' && <Home childId={route.childId} go={go} />}
-      {route.name === 'train' && <Training key={nav} childId={route.childId} kind={route.kind} go={go} />}
-      {route.name === 'parent' && <Parent go={go} />}
-      {route.name === 'album' && <Album childId={route.childId} go={go} />}
-      {route.name === 'deutsch' && <GermanTraining childId={route.childId} go={go} />}
+      <Suspense fallback={null}>
+        {route.name === 'pick' && <ProfilePicker go={go} />}
+        {route.name === 'setup' && <PlayerSetup childId={route.childId} go={go} />}
+        {route.name === 'home' && <Home childId={route.childId} go={go} />}
+        {route.name === 'train' && <Training key={nav} childId={route.childId} kind={route.kind} go={go} />}
+        {route.name === 'parent' && <Parent go={go} />}
+        {route.name === 'album' && <Album childId={route.childId} go={go} />}
+        {route.name === 'deutsch' && <GermanTraining childId={route.childId} go={go} />}
+      </Suspense>
     </div>
   )
 }

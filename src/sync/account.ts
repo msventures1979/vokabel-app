@@ -1,5 +1,5 @@
 // Konto, Familie, Geräte-Kopplung und der laufende Abgleich.
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 import { SUPABASE_KEY, SUPABASE_URL, SYNC_CONFIGURED } from '../config'
 import { adoptDeviceId, db, getMeta, seedFamilyData, setMeta } from '../data/db'
@@ -40,12 +40,13 @@ export function useSyncState() {
   )
 }
 
-let client: SupabaseClient | null = null
-export function supa(): SupabaseClient {
-  if (!client) {
-    if (!SYNC_CONFIGURED) throw new Error('Abgleich ist nicht eingerichtet.')
-    client = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
-  }
+// Die Supabase-Bibliothek ist groß und wird erst bei Bedarf nachgeladen
+let client: Promise<SupabaseClient> | null = null
+export function supa(): Promise<SupabaseClient> {
+  if (!SYNC_CONFIGURED) return Promise.reject(new Error('Abgleich ist nicht eingerichtet.'))
+  client ??= import('@supabase/supabase-js').then(({ createClient }) =>
+    createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }),
+  )
   return client
 }
 
@@ -67,7 +68,7 @@ export async function initSync() {
     setState({ ready: true })
     return
   }
-  const { data } = await supa().auth.getSession()
+  const { data } = await (await supa()).auth.getSession()
   const user = data.session?.user
   const familyId = await getMeta<string>('familyId')
   const role = await getMeta<Role>('role')
@@ -109,7 +110,7 @@ export function syncNow(): Promise<void> {
     }
     setState({ status: 'syncing' })
     try {
-      const ctx: SyncContext = { client: supa(), familyId: state.familyId, role: state.role }
+      const ctx: SyncContext = { client: (await supa()), familyId: state.familyId, role: state.role }
       await push(ctx)
       await pull(ctx)
       // Eltern-Gerät: neue eingebaute Wortlisten ergänzen und hochladen
@@ -128,7 +129,7 @@ export function syncNow(): Promise<void> {
 }
 
 async function checkMembership() {
-  const { data } = await supa().from('members').select('family_id, role').maybeSingle()
+  const { data } = await (await supa()).from('members').select('family_id, role').maybeSingle()
   if (!data) await forgetFamily()
 }
 
@@ -136,7 +137,7 @@ async function checkMembership() {
 
 export async function signUpParent(email: string, password: string): Promise<'confirm' | 'ok'> {
   try {
-    const { data, error } = await supa().auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
+    const { data, error } = await (await supa()).auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
     if (error) throw error
     if (!data.session) return 'confirm'
     await afterSignIn()
@@ -148,7 +149,7 @@ export async function signUpParent(email: string, password: string): Promise<'co
 
 export async function signInParent(email: string, password: string) {
   try {
-    const { error } = await supa().auth.signInWithPassword({ email, password })
+    const { error } = await (await supa()).auth.signInWithPassword({ email, password })
     if (error) throw error
     await afterSignIn()
   } catch (e) {
@@ -158,11 +159,11 @@ export async function signInParent(email: string, password: string) {
 
 // Nach dem Anmelden: gehört das Konto schon zu einer Familie?
 async function afterSignIn() {
-  const { data: u } = await supa().auth.getUser()
+  const { data: u } = await (await supa()).auth.getUser()
   if (!u.user) throw new Error('Anmeldung fehlgeschlagen.')
   setState({ signedIn: true, email: u.user.email, anonymous: u.user.is_anonymous })
   await adoptDeviceId(u.user.id)
-  const { data: m, error } = await supa().from('members').select('family_id, role').eq('user_id', u.user.id).maybeSingle()
+  const { data: m, error } = await (await supa()).from('members').select('family_id, role').eq('user_id', u.user.id).maybeSingle()
   if (error) throw error
   if (m) await attachToFamily(m.family_id as string, m.role as Role)
 }
@@ -170,7 +171,7 @@ async function afterSignIn() {
 // Neue Familie: lokale Daten (Kinder, Unit 1, Ziel, bisheriger Lernstand) werden hochgeladen
 export async function createFamily(name = 'Familie Storch') {
   try {
-    const { data, error } = await supa().rpc('create_family', { family_name: name })
+    const { data, error } = await (await supa()).rpc('create_family', { family_name: name })
     if (error) throw error
     const familyId = data as string
     await seedFamilyData()
@@ -200,7 +201,7 @@ export async function createFamily(name = 'Familie Storch') {
 // ---------- Kopplung ----------
 
 export async function createPairingCode(kind: 'device' | 'parent'): Promise<string> {
-  const { data, error } = await supa().rpc('create_pairing_code', { code_kind: kind })
+  const { data, error } = await (await supa()).rpc('create_pairing_code', { code_kind: kind })
   if (error) throw new Error(fehler(error))
   return data as string
 }
@@ -208,7 +209,7 @@ export async function createPairingCode(kind: 'device' | 'parent'): Promise<stri
 // Kind-Gerät: anonym anmelden und mit Code der Familie beitreten
 export async function pairDevice(code: string, deviceName: string) {
   try {
-    const c = supa()
+    const c = await supa()
     const { data: s } = await c.auth.getSession()
     if (!s.session) {
       const { error } = await c.auth.signInAnonymously()
@@ -241,7 +242,7 @@ async function attachToFamily(familyId: string, role: Role) {
   await setMeta('familyId', familyId)
   await setMeta('role', role)
   setState({ familyId, role, status: 'syncing' })
-  const ctx: SyncContext = { client: supa(), familyId, role }
+  const ctx: SyncContext = { client: (await supa()), familyId, role }
   await pull(ctx)
   const serverChildren = new Set((await db.children.toArray()).map((c) => c.id))
   const stamp = Date.now()
@@ -270,18 +271,18 @@ export interface Member {
 }
 
 export async function listMembers(): Promise<Member[]> {
-  const { data, error } = await supa().from('members').select('user_id, role, device_name, created_at').order('created_at')
+  const { data, error } = await (await supa()).from('members').select('user_id, role, device_name, created_at').order('created_at')
   if (error) throw new Error(fehler(error))
   return data as Member[]
 }
 
 export async function removeMember(userId: string) {
-  const { error } = await supa().from('members').delete().eq('user_id', userId)
+  const { error } = await (await supa()).from('members').delete().eq('user_id', userId)
   if (error) throw new Error(fehler(error))
 }
 
 export async function currentUserId(): Promise<string | undefined> {
-  const { data } = await supa().auth.getSession()
+  const { data } = await (await supa()).auth.getSession()
   return data.session?.user.id
 }
 
@@ -298,7 +299,7 @@ async function forgetFamily() {
 export async function signOut() {
   await syncNow().catch(() => undefined)
   await forgetFamily()
-  await supa().auth.signOut()
+  await (await supa()).auth.signOut()
   await db.meta.delete('deviceId')
   setState({ signedIn: false, email: undefined, anonymous: undefined })
   window.location.reload()

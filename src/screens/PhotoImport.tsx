@@ -63,7 +63,7 @@ export function PhotoImport() {
     setMsg('')
     try {
       const image = await shrink(file)
-      const { data, error } = await supa().functions.invoke('import-vocab', { body: { image, mediaType: 'image/jpeg' } })
+      const { data, error } = await (await supa()).functions.invoke('import-vocab', { body: { image, mediaType: 'image/jpeg' } })
       if (error) {
         let text = error.message
         try {

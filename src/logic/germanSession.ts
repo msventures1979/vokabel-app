@@ -5,7 +5,7 @@ import type { DateStr } from './dates'
 import type { Progress, Word, WordList } from './types'
 import { BLUMEN, REIMPAARE } from '../data/reime'
 
-type Rng = () => number
+import { shuffle, type Rng } from './session'
 
 export type GermanStep =
   | { kind: 'blume'; end: string; petals: { front: string; real: boolean }[] }
@@ -15,15 +15,6 @@ export type GermanStep =
   | { kind: 'rakete'; words: Word[] }
 
 const MAX_REVIEW = 4
-
-function shuffle<T>(a: T[], rng: Rng): T[] {
-  const b = [...a]
-  for (let i = b.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[b[i], b[j]] = [b[j], b[i]]
-  }
-  return b
-}
 
 // Aktuelles Blatt = das mit der höchsten Nummer im Titel ("Lernwörterblatt 3" nach "Lernwörterblatt 2")
 const isExtra = (id: string) => id.startsWith('de-x')

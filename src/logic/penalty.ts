@@ -5,22 +5,13 @@ import type { Progress, Word } from './types'
 export const SHOTS = 5
 export const GOAL_STARS = 5 // Sterne pro Tor
 
-type Rng = () => number
+import { shuffle, type Rng } from './session'
 
 export interface Shot {
   word: Word
   dir: 'de-en' | 'image' | 'hear-de' // Milan: deutsches Wort → englisches wählen; Marlon: englisches Wort hören → Bild wählen; Deutsch: Wort hören → richtig geschriebenes Wort wählen
   options: string[] // genau 3, in Reihenfolge links, Mitte, rechts
   correct: number // Index der richtigen Antwort
-}
-
-function shuffle<T>(a: T[], rng: Rng): T[] {
-  const b = [...a]
-  for (let i = b.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[b[i], b[j]] = [b[j], b[i]]
-  }
-  return b
 }
 
 export function pickShots(pool: Word[], progress: Map<string, Progress>, mode: 'write' | 'picture' | 'de', rng: Rng = Math.random): Shot[] {

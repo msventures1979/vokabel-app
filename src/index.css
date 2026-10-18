@@ -1,8 +1,8 @@
 @import 'tailwindcss';
-@import '@fontsource/barlow-condensed/600.css';
-@import '@fontsource/barlow-condensed/800.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/600.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-800.css';
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-600.css';
 
 @theme {
   --color-pitch: #0b3d2a;

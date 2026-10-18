@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Route } from '../App'
 import { childRules, completeRound, dayLog, germanData, germanResult, recordAnswer } from '../data/repo'
+import { shuffle } from '../logic/session'
 import { buildGermanRound, lettersFor, type GermanStep, type Tile } from '../logic/germanSession'
 import { today } from '../logic/dates'
 import type { DayLog, Word } from '../logic/types'
@@ -463,11 +464,7 @@ function RaketeStep({ words, onWord, onNext }: { words: Word[]; onWord: () => vo
 }
 
 function shuffleIdx(n: number): number[] {
-  const a = Array.from({ length: n }, (_, i) => i)
-  for (let i = n - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
+  const a = shuffle(Array.from({ length: n }, (_, i) => i))
   // nie schon in der richtigen Reihenfolge anzeigen
   if (n > 1 && a.every((v, i) => v === i)) a.reverse()
   return a

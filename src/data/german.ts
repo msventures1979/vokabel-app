@@ -66,6 +66,4 @@ export const germanSheets: Array<{ list: WordList; words: Word[] }> = [
   },
 ]
 
-// Zusatzlisten (von uns), im Unterschied zu den Lernwörterblättern aus der Schule
-export const isExtraList = (listId: string) => listId.startsWith('de-x')
 

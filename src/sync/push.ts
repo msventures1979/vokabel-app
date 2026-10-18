@@ -26,7 +26,7 @@ async function currentRow(): Promise<SubRow | null> {
   const reg = await navigator.serviceWorker.ready
   const sub = await reg.pushManager.getSubscription()
   if (!sub) return null
-  const { data } = await supa().from('push_subscriptions').select('endpoint, child_ids, hour').eq('endpoint', sub.endpoint).maybeSingle()
+  const { data } = await (await supa()).from('push_subscriptions').select('endpoint, child_ids, hour').eq('endpoint', sub.endpoint).maybeSingle()
   return (data as SubRow) ?? null
 }
 
@@ -41,7 +41,7 @@ export async function enableReminder(childId: string, hour: number) {
   if (perm !== 'granted') throw new Error('Benachrichtigungen sind für die App ausgeschaltet. Bitte in den Einstellungen des Handys erlauben.')
   const familyId = await getMeta<string>('familyId')
   if (!familyId) throw new Error('Erinnerungen gibt es nur mit Eltern-Konto oder gekoppeltem Gerät.')
-  const { data: key, error: kErr } = await supa().rpc('push_public_key')
+  const { data: key, error: kErr } = await (await supa()).rpc('push_public_key')
   if (kErr || !key) throw new Error('Erinnerungen sind auf dem Server noch nicht eingerichtet.')
   const reg = await navigator.serviceWorker.ready
   const sub =
@@ -50,7 +50,7 @@ export async function enableReminder(childId: string, hour: number) {
   const json = sub.toJSON()
   const existing = await currentRow()
   const childIds = Array.from(new Set([...(existing?.child_ids ?? []), childId]))
-  const { error } = await supa()
+  const { error } = await (await supa())
     .from('push_subscriptions')
     .upsert(
       { endpoint: sub.endpoint, family_id: familyId, p256dh: json.keys?.p256dh, auth: json.keys?.auth, hour, child_ids: childIds },
@@ -62,7 +62,7 @@ export async function enableReminder(childId: string, hour: number) {
 export async function setReminderHour(hour: number) {
   const row = await currentRow()
   if (!row) return
-  await supa().from('push_subscriptions').update({ hour }).eq('endpoint', row.endpoint)
+  await (await supa()).from('push_subscriptions').update({ hour }).eq('endpoint', row.endpoint)
 }
 
 export async function disableReminder(childId: string) {
@@ -70,10 +70,10 @@ export async function disableReminder(childId: string) {
   if (!row) return
   const rest = row.child_ids.filter((c) => c !== childId)
   if (rest.length) {
-    await supa().from('push_subscriptions').update({ child_ids: rest }).eq('endpoint', row.endpoint)
+    await (await supa()).from('push_subscriptions').update({ child_ids: rest }).eq('endpoint', row.endpoint)
     return
   }
-  await supa().from('push_subscriptions').delete().eq('endpoint', row.endpoint)
+  await (await supa()).from('push_subscriptions').delete().eq('endpoint', row.endpoint)
   const reg = await navigator.serviceWorker.ready
   await (await reg.pushManager.getSubscription())?.unsubscribe()
 }

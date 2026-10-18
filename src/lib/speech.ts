@@ -21,10 +21,6 @@ if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.addEventListener?.('voiceschanged', pickVoice)
 }
 
-export function canSpeak() {
-  return true
-}
-
 export function speakable(text: string) {
   return text
     .replace(/\(\*\)/g, '')
@@ -42,10 +38,6 @@ export function audioKey(text: string) {
     h = Math.imul(h, 0x01000193) >>> 0
   }
   return h.toString(16).padStart(8, '0')
-}
-
-export function hasRecording(text: string) {
-  return AUDIO.has(audioKey(text))
 }
 
 let current: HTMLAudioElement | null = null
@@ -94,10 +86,6 @@ function pickDeVoice() {
   return deVoice
 }
 if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', pickDeVoice)
-
-export function hasGermanVoice() {
-  return !!(deVoice ?? pickDeVoice())
-}
 
 function deviceSpeakDe(text: string, slow: boolean) {
   if (typeof speechSynthesis === 'undefined') return
