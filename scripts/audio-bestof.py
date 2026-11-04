@@ -21,7 +21,7 @@ ALT = {'door': {'daw', 'door'}, 'four': {'4', 'for', 'fore'}, 'two': {'2', 'to',
        'a': {'a', 'uh', 'ah'}, 'in': {'in', 'inn'}, 'year': {'year', 'yeah'}, 'ear': {'ear', 'here', 'year'}, 'hair': {'hair', 'here'},
        'tv': {'tv', 't v', 'tvs'}, 'no': {'no', 'know'}, 'sun': {'sun', 'son'}, 'write': {'write', 'right'}, 'red': {'red', 'read'},
        'key': {'key', 'kee'}, 'new': {'new', 'knew'}, 'pear': {'pear', 'pair'},
-       'here': {'here', 'hear'}, 'for': {'for', '4', 'four'}, 'board': {'board', 'bored'}, 'be': {'be', 'bee', 'b'}, 'at': {'at', 'add'}, 'on': {'on', 'an'}, 'pe': {'pe', 'p e', 'pee'}, 'art': {'art', 'arts'}, 'but': {'but', 'butt'}, 'day': {'day', 'they'}, 'it': {'it', 'i t'}, 're': {'re', 'r e', 'ree'}, 'we': {'we', 'wee', 'oui'}, 'sure': {'sure', 'shore'}}
+       'here': {'here', 'hear'}, 'for': {'for', '4', 'four'}, 'board': {'board', 'bored'}, 'be': {'be', 'bee', 'b'}, 'at': {'at', 'add'}, 'on': {'on', 'an'}, 'pe': {'pe', 'p e', 'pee'}, 'art': {'art', 'arts'}, 'but': {'but', 'butt'}, 'day': {'day', 'they'}, 'it': {'it', 'i t'}, 're': {'re', 'r e', 'ree'}, 'we': {'we', 'wee', 'oui'}, 'sure': {'sure', 'shore'}, 'gym': {'gym', 'jim'}, "they're": {"they're", 'there', 'their'}}
 
 
 def norm(s):
