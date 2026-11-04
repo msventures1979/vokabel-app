@@ -57,7 +57,10 @@ describe('Neue eingebaute Englisch-Liste', () => {
     expect(await db.assignments.get('marlon:en-u1s1')).toBeUndefined()
     const pool = await wordPool('milan')
     expect(pool.filter((w) => w.listId === 'en-u1s1')).toHaveLength(43)
+    expect(pool.filter((w) => w.listId === 'en-u1s2')).toHaveLength(43)
+    expect(await db.assignments.get('milan:en-u1s2')).toMatchObject({ active: true })
     expect(pool[0].listId).toBe('en-u1') // Unit 1 kommt zuerst
+    expect(pool.findIndex((w) => w.listId === 'en-u1s2')).toBeGreaterThan(pool.map((w) => w.listId).lastIndexOf('en-u1s1')) // Reihenfolge der Stationen
     // abgewählt bleibt abgewählt
     await db.assignments.update('milan:en-u1s1', { active: false })
     await ensureCatalog()

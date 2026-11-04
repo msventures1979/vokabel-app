@@ -2,6 +2,7 @@
 // Aufruf: npx tsx scripts/speech-texts.ts > texts.json   (danach scripts/make-audio.py)
 import { unit1Words } from '../src/data/en-unit1'
 import { unit1Station1Words } from '../src/data/en-unit1-station1'
+import { unit1Station2Words } from '../src/data/en-unit1-station2'
 import { starterWords } from '../src/data/starter'
 import { CARDS } from '../src/logic/album'
 import { audioKey, speakable } from '../src/lib/speech'
@@ -12,7 +13,7 @@ const add = (t?: string) => {
   const s = speakable(t)
   if (s) texts.set(audioKey(s), s)
 }
-for (const w of [...unit1Words, ...unit1Station1Words, ...starterWords]) {
+for (const w of [...unit1Words, ...unit1Station1Words, ...unit1Station2Words, ...starterWords]) {
   add(w.en)
   add(w.example)
 }

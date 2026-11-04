@@ -11,7 +11,7 @@ m = WhisperModel('small.en', device='cpu', compute_type='int8')
 V = {'cori': PiperVoice.load('piper/en_GB-cori-high.onnx'), 'jenny': PiperVoice.load('piper/en_GB-jenny_dioco-medium.onnx')}
 texts = json.load(open('texts.json'))
 OUT = 'accepted'; os.makedirs(OUT, exist_ok=True)
-SAY = {'mr': 'Mister', 'mrs': 'Missus', 'ok': 'okay', 'tv': 'T V'}
+SAY = {'mr': 'Mister', 'mrs': 'Missus', 'ok': 'okay', 'tv': 'T V', 'pe': 'P E', 'it': 'I T', 're': 'R E'}
 NUM = {'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',
        'eleven': '11', 'twelve': '12', 'mr': 'mister', 'mrs': 'missus', 'ok': 'okay', 'tv': 'tv', 'mum': 'mom', 'grey': 'gray', 'colour': 'color',
        "i'm": 'i am', "it's": 'it is', "he's": 'he is', "she's": 'she is', "let's": 'let us', "where's": 'where is', 'goodnight': 'good night',
@@ -21,7 +21,7 @@ ALT = {'door': {'daw', 'door'}, 'four': {'4', 'for', 'fore'}, 'two': {'2', 'to',
        'a': {'a', 'uh', 'ah'}, 'in': {'in', 'inn'}, 'year': {'year', 'yeah'}, 'ear': {'ear', 'here', 'year'}, 'hair': {'hair', 'here'},
        'tv': {'tv', 't v', 'tvs'}, 'no': {'no', 'know'}, 'sun': {'sun', 'son'}, 'write': {'write', 'right'}, 'red': {'red', 'read'},
        'key': {'key', 'kee'}, 'new': {'new', 'knew'}, 'pear': {'pear', 'pair'},
-       'here': {'here', 'hear'}, 'for': {'for', '4', 'four'}, 'board': {'board', 'bored'}, 'be': {'be', 'bee', 'b'}, 'at': {'at', 'add'}, 'on': {'on', 'an'}}
+       'here': {'here', 'hear'}, 'for': {'for', '4', 'four'}, 'board': {'board', 'bored'}, 'be': {'be', 'bee', 'b'}, 'at': {'at', 'add'}, 'on': {'on', 'an'}, 'pe': {'pe', 'p e', 'pee'}, 'art': {'art', 'arts'}, 'but': {'but', 'butt'}, 'day': {'day', 'they'}, 'it': {'it', 'i t'}, 're': {'re', 'r e', 'ree'}, 'we': {'we', 'wee', 'oui'}, 'sure': {'sure', 'shore'}}
 
 
 def norm(s):
@@ -51,7 +51,7 @@ report = json.load(open('bestof.json')) if os.path.exists('bestof.json') else {}
 for t in texts:
     key, text = t['key'], t['text']
     if key in report: continue
-    say = re.sub(r"\b(Mrs|Mr|OK|TV)\b", lambda x: SAY[x.group(1).lower()], text)
+    say = re.sub(r"\b(Mrs|Mr|OK|TV|PE|IT|RE)\b", lambda x: SAY[x.group(1).lower()], text)
     if not re.search(r'[.!?]$', say): say += '.'
     short = len(text.split()) <= 2
     want = norm(text); ok_set = ALT.get(want, {want})

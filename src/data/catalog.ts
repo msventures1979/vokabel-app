@@ -3,6 +3,7 @@
 import { db } from './db'
 import { unit1, unit1Words } from './en-unit1'
 import { unit1Station1, unit1Station1Words } from './en-unit1-station1'
+import { unit1Station2, unit1Station2Words } from './en-unit1-station2'
 import { isStarterList, starterLists, starterWords } from './starter'
 import { germanSheets } from './german'
 import type { Word, WordList } from '../logic/types'
@@ -12,6 +13,7 @@ import { today } from '../logic/dates'
 const CATALOG: Array<{ list: WordList; words: Word[]; assign?: string }> = [
   { list: unit1, words: unit1Words },
   { list: unit1Station1, words: unit1Station1Words, assign: 'milan' },
+  { list: unit1Station2, words: unit1Station2Words, assign: 'milan' },
   ...starterLists.map((list) => ({ list, words: starterWords.filter((w) => w.listId === list.id) })),
   ...germanSheets,
 ]
