@@ -31,10 +31,10 @@ export function GermanTraining({ childId, go }: { childId: string; go: (r: Route
 
   useEffect(() => {
     ;(async () => {
-      const { pool, lists, progress } = await germanData(childId)
+      const { pool, lists, progress, perDay } = await germanData(childId)
       before.current = await dayLog(childId)
       rules.current = await childRules(childId)
-      setSteps(buildGermanRound(pool, lists, progress, today()))
+      setSteps(buildGermanRound(pool, lists, progress, today(), perDay))
       setIdx(0)
       setEarned(0)
       setMistakes(0)

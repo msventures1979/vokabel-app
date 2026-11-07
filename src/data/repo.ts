@@ -321,7 +321,8 @@ export async function germanResult(childId: string, wordId: string, correct: boo
 export async function germanData(childId: string) {
   const pool = await wordPool(childId, 'de')
   const lists = (await db.lists.bulkGet([...new Set(pool.map((w) => w.listId))])).filter((l): l is WordList => !!l)
-  return { pool, lists, progress: await progressMap(childId) }
+  const perDay = (await db.children.get(childId))?.newPerDay ?? 5
+  return { pool, lists, progress: await progressMap(childId), perDay }
 }
 
 // Neues Lernwörterblatt speichern und dem Kind zuordnen. Wörter mit Silbenstrich: "Kat-ze"

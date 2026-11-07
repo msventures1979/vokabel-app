@@ -16,56 +16,56 @@ export type GermanStep =
 
 const MAX_REVIEW = 4
 
-// Aktuelles Blatt: Lernwörterblätter werden der Reihe nach geübt ("Lernwörterblatt 3" nach "Lernwörterblatt 2").
-// Marlon bleibt beim neuesten schon begonnenen Blatt, bis er dessen Lernwörter sicher kann
-// (jedes mindestens einmal an einem späteren Tag richtig, Fach 2); dann kommt das nächste Blatt.
+// Neue Lernwörter kommen der Reihe nach aus den Lernwörterblättern ("Lernwörterblatt 3" nach "Lernwörterblatt 2"),
+// danach aus den Extra-Listen. Pro Tag so viele neue, wie beim Kind eingestellt (newPerDay).
+// Heute schon eingeführte Wörter werden in weiteren Runden am selben Tag mitgeübt, ältere über die Wiederholung.
 const isExtra = (id: string) => id.startsWith('de-x')
-const EXTRA_NEW_PER_ROUND = 2
-const SICHER = 2
+const byTitle = (a: WordList, b: WordList) => a.title.localeCompare(b.title, 'de', { numeric: true })
 
-export function currentSheet(lists: WordList[], pool: Word[], progress?: Map<string, Progress>): WordList | undefined {
-  const byTitle = (a: WordList, b: WordList) => a.title.localeCompare(b.title, 'de', { numeric: true })
-  const withWords = lists.filter((l) => pool.some((w) => w.listId === l.id))
-  const school = withWords.filter((l) => !isExtra(l.id)).sort(byTitle)
-  if (!school.length) return [...withWords].sort(byTitle).at(-1)
-  if (!progress) return school.at(-1)
-  const lernOf = (l: WordList) => pool.filter((w) => w.listId === l.id && w.kind !== 'lese')
-  let idx = -1
-  school.forEach((l, i) => {
-    if (lernOf(l).some((w) => progress.has(w.id))) idx = i
-  })
-  if (idx === -1) return school[0]
-  const sicher = lernOf(school[idx]).every((w) => (progress.get(w.id)?.box ?? 0) >= SICHER)
-  return sicher && idx + 1 < school.length ? school[idx + 1] : school[idx]
+function lernQueue(lists: WordList[], pool: Word[]): Word[] {
+  const order = [...lists.filter((l) => !isExtra(l.id)).sort(byTitle), ...lists.filter((l) => isExtra(l.id)).sort(byTitle)]
+  return order.flatMap((l) => pool.filter((w) => w.listId === l.id && w.kind !== 'lese').sort((a, b) => a.order - b.order))
 }
 
-export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<string, Progress>, day: DateStr, rng: Rng = Math.random): GermanStep[] {
-  const sheet = currentSheet(lists, pool, progress)
-  if (!sheet) return []
-  const lern = pool.filter((w) => w.listId === sheet.id && w.kind !== 'lese').sort((a, b) => a.order - b.order)
-  const lese = pool.filter((w) => w.listId === sheet.id && w.kind === 'lese')
+// Die Lernwörter dieser Runde: heute schon begonnene plus neue bis zum Tageslimit.
+// Ist alles geübt, die Wörter des neuesten Blatts zum Weiterüben.
+export function roundWords(lists: WordList[], pool: Word[], progress: Map<string, Progress>, day: DateStr, perDay: number): Word[] {
+  const queue = lernQueue(lists, pool)
+  const todays = queue.filter((w) => progress.get(w.id)?.introducedOn === day)
+  const fresh = queue.filter((w) => !progress.has(w.id)).slice(0, Math.max(0, perDay - todays.length))
+  const words = [...todays, ...fresh]
+  if (words.length) return words
+  const latest = lists.filter((l) => !isExtra(l.id) && pool.some((w) => w.listId === l.id)).sort(byTitle).at(-1)
+  return latest ? queue.filter((w) => w.listId === latest.id) : []
+}
+
+// Für die Anzeige in der Kabine: aus welchem Blatt die Wörter gerade kommen
+export function currentSheet(lists: WordList[], pool: Word[], progress?: Map<string, Progress>, day?: DateStr, perDay = 7): WordList | undefined {
+  const words = progress && day ? roundWords(lists, pool, progress, day, perDay) : []
+  const id = words.at(-1)?.listId ?? lists.filter((l) => pool.some((w) => w.listId === l.id)).sort(byTitle).at(-1)?.id
+  return lists.find((l) => l.id === id)
+}
+
+export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<string, Progress>, day: DateStr, perDay = 7, rng: Rng = Math.random): GermanStep[] {
+  const lern = roundWords(lists, pool, progress, day, perDay)
+  if (!lern.length) return []
+  const ids = new Set(lern.map((w) => w.id))
+  const sheets = new Set(lern.map((w) => w.listId))
   const review = shuffle(
-    pool.filter((w) => w.listId !== sheet.id && w.kind !== 'lese' && progress.get(w.id) && isDue(progress.get(w.id)!, day)),
+    pool.filter((w) => !ids.has(w.id) && w.kind !== 'lese' && progress.get(w.id) && isDue(progress.get(w.id)!, day)),
     rng,
   ).slice(0, MAX_REVIEW)
-
-  // Zusatzwörter: jede Runde bis zu 2 neue (in Listenreihenfolge), wenn ein Schulblatt Hauptsache ist
-  const extraNew = isExtra(sheet.id)
-    ? []
-    : pool
-        .filter((w) => isExtra(w.listId) && w.kind !== 'lese' && !progress.get(w.id))
-        .sort((a, b) => a.listId.localeCompare(b.listId) || a.order - b.order)
-        .slice(0, EXTRA_NEW_PER_ROUND)
-  const extraLese = shuffle(pool.filter((w) => isExtra(w.listId) && w.kind === 'lese'), rng).slice(0, 3)
+  const lese = pool.filter((w) => sheets.has(w.listId) && w.kind === 'lese')
+  const extraLese = shuffle(pool.filter((w) => isExtra(w.listId) && !sheets.has(w.listId) && w.kind === 'lese'), rng).slice(0, 3)
 
   const steps: GermanStep[] = []
-  for (const w of [...lern, ...extraNew]) {
+  for (const w of lern) {
     if ((w.syllables?.length ?? 1) > 1) steps.push({ kind: 'silben', word: w })
     steps.push({ kind: 'schreiben', word: w })
   }
   for (const w of review) steps.push({ kind: 'schreiben', word: w })
   steps.push(...rhymeSteps(rng))
-  const rocket = shuffle([...lese, ...lern, ...(isExtra(sheet.id) ? [] : extraLese)], rng)
+  const rocket = shuffle([...lese, ...lern, ...extraLese], rng)
   if (rocket.length) steps.push({ kind: 'rakete', words: rocket })
   return steps
 }
