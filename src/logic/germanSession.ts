@@ -16,19 +16,31 @@ export type GermanStep =
 
 const MAX_REVIEW = 4
 
-// Aktuelles Blatt = das mit der höchsten Nummer im Titel ("Lernwörterblatt 3" nach "Lernwörterblatt 2")
+// Aktuelles Blatt: Lernwörterblätter werden der Reihe nach geübt ("Lernwörterblatt 3" nach "Lernwörterblatt 2").
+// Marlon bleibt beim neuesten schon begonnenen Blatt, bis er dessen Lernwörter sicher kann
+// (jedes mindestens einmal an einem späteren Tag richtig, Fach 2); dann kommt das nächste Blatt.
 const isExtra = (id: string) => id.startsWith('de-x')
 const EXTRA_NEW_PER_ROUND = 2
+const SICHER = 2
 
-export function currentSheet(lists: WordList[], pool: Word[]): WordList | undefined {
+export function currentSheet(lists: WordList[], pool: Word[], progress?: Map<string, Progress>): WordList | undefined {
+  const byTitle = (a: WordList, b: WordList) => a.title.localeCompare(b.title, 'de', { numeric: true })
   const withWords = lists.filter((l) => pool.some((w) => w.listId === l.id))
-  const school = withWords.filter((l) => !isExtra(l.id))
-  if (school.length) return [...school].sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true })).at(-1)
-  return [...withWords].sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true })).at(-1)
+  const school = withWords.filter((l) => !isExtra(l.id)).sort(byTitle)
+  if (!school.length) return [...withWords].sort(byTitle).at(-1)
+  if (!progress) return school.at(-1)
+  const lernOf = (l: WordList) => pool.filter((w) => w.listId === l.id && w.kind !== 'lese')
+  let idx = -1
+  school.forEach((l, i) => {
+    if (lernOf(l).some((w) => progress.has(w.id))) idx = i
+  })
+  if (idx === -1) return school[0]
+  const sicher = lernOf(school[idx]).every((w) => (progress.get(w.id)?.box ?? 0) >= SICHER)
+  return sicher && idx + 1 < school.length ? school[idx + 1] : school[idx]
 }
 
 export function buildGermanRound(pool: Word[], lists: WordList[], progress: Map<string, Progress>, day: DateStr, rng: Rng = Math.random): GermanStep[] {
-  const sheet = currentSheet(lists, pool)
+  const sheet = currentSheet(lists, pool, progress)
   if (!sheet) return []
   const lern = pool.filter((w) => w.listId === sheet.id && w.kind !== 'lese').sort((a, b) => a.order - b.order)
   const lese = pool.filter((w) => w.listId === sheet.id && w.kind === 'lese')

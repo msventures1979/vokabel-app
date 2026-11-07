@@ -261,7 +261,12 @@ describe('Deutsch-Lernwörter', () => {
   it('Runde: aktuelles Blatt mit Silben und Schreiben, fällige alte Wörter, am Ende die Leserakete', () => {
     const pool = [...germanSheets[0].words, ...germanSheets[1].words]
     const lists = germanSheets.map((s) => s.list)
-    const prog = new Map([['de-lw1:buch', { id: 'm:de-lw1:buch', childId: 'm', wordId: 'de-lw1:buch', box: 2, due: '2026-10-01', wrongStreak: 0, errors: 1 }]]) as never
+    // Blatt 1 sitzt (alle Lernwörter Fach 2), nur "Buch" ist heute fällig → Blatt 2 ist dran
+    const prog = new Map(
+      germanSheets[0].words
+        .filter((w) => w.kind === 'lern')
+        .map((w) => [w.id, { id: `m:${w.id}`, childId: 'm', wordId: w.id, box: 2, due: w.id === 'de-lw1:buch' ? '2026-10-01' : '2026-12-01', wrongStreak: 0, errors: 0 }]),
+    ) as never
     const steps = buildGermanRound(pool, lists, prog, '2026-10-17')
     const kinds = steps.map((s) => (s.kind === 'silben' || s.kind === 'schreiben' ? `${s.kind}:${s.word.en}` : s.kind))
     expect(kinds.slice(0, 3)).toEqual(['silben:Hase', 'schreiben:Hase', 'schreiben:Hund'])
@@ -285,7 +290,7 @@ describe('Extra-Wörter Deutsch', () => {
     const lists = germanSheets.map((s) => s.list)
     const steps = buildGermanRound(pool, lists, new Map(), '2026-10-17')
     const words = steps.flatMap((s) => (s.kind === 'silben' || s.kind === 'schreiben' ? [s.word.en] : []))
-    expect(words.slice(0, 2)).toEqual(['Hase', 'Hase'])
+    expect(words.slice(0, 2)).toEqual(['Bub', 'Mädchen']) // ohne Lernstand beginnt es mit Blatt 1
     expect(words).toContain('Ball')
     expect(words).toContain('Tor')
     expect(words).not.toContain('spielen')
@@ -323,5 +328,29 @@ describe('Elfmeter Deutsch', () => {
       expect(s.word.kind).toBe('lern')
       expect(s.options[s.correct]).toBe(s.word.en)
     }
+  })
+})
+
+describe('Lernwörterblätter der Reihe nach', () => {
+  it('bleibt beim begonnenen Blatt, bis es sicher sitzt, dann kommt das nächste', async () => {
+    const { currentSheet } = await import('./germanSession')
+    const { germanSheets } = await import('../data/german')
+    const sheets = germanSheets.filter((s) => !s.list.id.startsWith('de-x'))
+    const lists = sheets.map((s) => s.list)
+    const pool = sheets.flatMap((s) => s.words)
+    const prog = new Map<string, Progress>()
+    const setBox = (listId: string, box: number) => {
+      for (const w of pool.filter((w) => w.listId === listId && w.kind !== 'lese'))
+        prog.set(w.id, { id: `marlon:${w.id}`, childId: 'marlon', wordId: w.id, box, due: null, wrongStreak: 0, errors: 0 })
+    }
+    expect(currentSheet(lists, pool, prog)?.id).toBe('de-lw1') // noch nichts geübt
+    setBox('de-lw1', 3)
+    setBox('de-lw2', 1)
+    expect(currentSheet(lists, pool, prog)?.id).toBe('de-lw2') // Blatt 2 noch nicht sicher
+    setBox('de-lw2', 2)
+    expect(currentSheet(lists, pool, prog)?.id).toBe('de-lw3') // weiter zu Blatt 3
+    setBox('de-lw3', 1)
+    expect(currentSheet(lists, pool, prog)?.id).toBe('de-lw3')
+    expect(currentSheet(lists, pool)?.id).toBe('de-lw6') // ohne Lernstand: neuestes Blatt
   })
 })

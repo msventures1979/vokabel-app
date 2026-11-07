@@ -27,7 +27,7 @@ export function Home({ childId, go }: { childId: string; go: (r: Route) => void 
       seenCards(childId),
     ])
     const german = child.settings?.german ? await germanData(childId) : null
-    const sheet = german ? currentSheet(german.lists, german.pool) : undefined
+    const sheet = german ? currentSheet(german.lists, german.pool, german.progress) : undefined
     return { child, p, stars, goal, dates, album, seen, german: german ? { sheet, count: german.pool.filter((w) => w.kind !== 'lese').length } : null }
   }, [childId])
 

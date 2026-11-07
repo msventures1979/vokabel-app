@@ -55,6 +55,22 @@ export const germanSheets: Array<{ list: WordList; words: Word[] }> = [
       ['mei-ne', 'vom', 'bei-de', 'was', 'los', 'wie', 'weil', 'ge-gen', 'sind', 'wei-ter', 'jetzt'],
     ),
   },
+  {
+    list: { id: 'de-lw3', title: 'Lernwörterblatt 3', subject: GERMAN_SUBJECT },
+    words: germanWords('de-lw3', ['gern', 'Heft', 'Haus', 'ge-hen', 'jung'], []),
+  },
+  {
+    list: { id: 'de-lw4', title: 'Lernwörterblatt 4', subject: GERMAN_SUBJECT },
+    words: germanWords('de-lw4', ['vie-le', 'El-tern', 'Groß-el-tern', 'groß', 'Ba-by'], []),
+  },
+  {
+    list: { id: 'de-lw5', title: 'Lernwörterblatt 5', subject: GERMAN_SUBJECT },
+    words: germanWords('de-lw5', ['Ba-na-ne', 'Bir-ne', 'Ap-fel', 'trin-ken', 'ge-sund'], []),
+  },
+  {
+    list: { id: 'de-lw6', title: 'Lernwörterblatt 6', subject: GERMAN_SUBJECT },
+    words: germanWords('de-lw6', ['ler-nen', 'zu-hö-ren', 'Mut-ter', 'Schwes-ter', 'Bru-der'], []),
+  },
   // Zusatzwörter (Grundwortschatz Klasse 2), kommen neben dem Schulblatt dazu: 2 neue pro Runde
   {
     list: { id: 'de-x1', title: 'Extra-Wörter 1', subject: GERMAN_SUBJECT },
