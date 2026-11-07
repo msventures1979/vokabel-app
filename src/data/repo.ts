@@ -325,6 +325,16 @@ export async function germanData(childId: string) {
   return { pool, lists, progress: await progressMap(childId), perDay }
 }
 
+// Eigene Aufnahme der Eltern für ein deutsches Wort speichern (oder mit null löschen)
+export async function setWordVoice(wordId: string, voice: string | null) {
+  const w = await db.words.get(wordId)
+  if (!w) return
+  const { voice: _old, ...rest } = w
+  void _old
+  await db.words.put({ ...rest, ...(voice ? { voice } : {}), dirty: now() })
+  syncSoon()
+}
+
 // Neues Lernwörterblatt speichern und dem Kind zuordnen. Wörter mit Silbenstrich: "Kat-ze"
 export async function saveGermanSheet(childId: string, title: string, lern: string[], lese: string[]) {
   const listId = `de-${crypto.randomUUID().slice(0, 8)}`

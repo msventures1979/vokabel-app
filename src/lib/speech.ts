@@ -78,43 +78,19 @@ export function speak(text: string, rate = 0.9) {
 export const audioKeyDe = (text: string) => audioKey(`de:${text}`)
 export const syllableText = (syllables: string[]) => syllables.join(' - ')
 
-let deVoice: SpeechSynthesisVoice | null = null
-function pickDeVoice() {
-  if (typeof speechSynthesis === 'undefined') return null
-  const de = speechSynthesis.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith('de'))
-  deVoice = de.find((v) => GOOD.test(v.name)) ?? de.find((v) => !v.localService) ?? de[0] ?? null
-  return deVoice
-}
-if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', pickDeVoice)
+// Deutsch wird nur noch mit der eigenen Aufnahme der Eltern vorgelesen (Word.voice).
+// Computerstimmen klangen zu schlecht; ohne Aufnahme bleibt es still und die Übungen laufen über das Lesen.
+export const hasVoice = (w?: { voice?: string } | string | null): boolean => typeof w === 'object' && !!w?.voice
 
-function deviceSpeakDe(text: string, slow: boolean) {
-  if (typeof speechSynthesis === 'undefined') return
-  const v = deVoice ?? pickDeVoice()
-  if (!v) return // keine deutsche Stimme auf dem Gerät: lieber still als falsch (englisch) vorlesen
-  try {
-    speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'de-DE'
-    u.rate = slow ? 0.6 : 0.85
-    u.voice = v
-    speechSynthesis.speak(u)
-  } catch {
-    /* Sprachausgabe nicht verfügbar */
-  }
-}
-
-// Ein deutsches Wort vorlesen; mit syllables langsam in Silben ("Ha – se")
-export function speakDe(text: string, syllables?: string[]) {
-  const t = syllables && syllables.length > 1 ? syllableText(syllables) : text
-  const key = audioKeyDe(t)
+export function speakDe(w?: { voice?: string } | string | null) {
   try {
     current?.pause()
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
   } catch {
     /* ignorieren */
   }
-  if (!AUDIO.has(key) || typeof Audio === 'undefined') return deviceSpeakDe(t, !!syllables)
-  const a = new Audio(`/audio/${key}.mp3`)
+  if (!hasVoice(w) || typeof Audio === 'undefined') return
+  const a = new Audio((w as { voice: string }).voice)
   current = a
-  a.play().catch(() => deviceSpeakDe(t, !!syllables))
+  a.play().catch(() => {})
 }

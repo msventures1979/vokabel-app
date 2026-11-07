@@ -19,7 +19,7 @@ const KEEPER_DIVE = ['translate(-115%, -6%) rotate(-62deg)', 'translate(0, -14%)
 
 export function Penalty({ childId, onDone, subject = 'en' }: { childId: string; onDone: () => void; subject?: 'en' | 'de' }) {
   const de = subject === 'de'
-  const say = (w: { en: string }) => (de ? speakDe(w.en) : speak(w.en))
+  const say = (w: { en: string; voice?: string }) => (de ? speakDe(w) : speak(w.en))
   const [shots, setShots] = useState<Shot[] | null>(null)
   const [i, setI] = useState(0)
   const [phase, setPhase] = useState<Phase>('aim')
@@ -144,6 +144,11 @@ export function Penalty({ childId, onDone, subject = 'en' }: { childId: string; 
             <div className="text-sm text-chalk/70">Wie heißt das auf Englisch?</div>
             <div className="font-display text-4xl font-extrabold leading-tight">{shot!.word.de}</div>
           </>
+        ) : shot!.dir === 'spell-de' ? (
+          <>
+            <div className="text-sm text-chalk/70">Welches Wort ist richtig geschrieben?</div>
+            <div className="font-display text-3xl font-extrabold leading-tight">Schieß auf das richtige!</div>
+          </>
         ) : (
           <button onClick={() => say(shot!.word)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
             <span className="h-14 w-14 rounded-full bg-chalk text-pitch grid place-items-center">
@@ -219,7 +224,7 @@ export function Penalty({ childId, onDone, subject = 'en' }: { childId: string; 
             {!results[results.length - 1] && <div className="text-sm text-chalk/70">Richtig wäre gewesen:</div>}
             <button onClick={() => say(shot!.word)} className="inline-flex items-center gap-2 font-display text-3xl font-extrabold">
               {shot!.dir === 'image' && shot!.word.image && <WordImage image={shot!.word.image} size={44} />}
-              {shot!.word.en} <SpeakerIcon size={22} />
+              {shot!.word.en} {(!de || shot!.word.voice) && <SpeakerIcon size={22} />}
             </button>
             {shot!.dir === 'de-en' && <div className="text-chalk/70">{shot!.word.de}</div>}
           </div>

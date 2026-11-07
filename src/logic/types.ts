@@ -21,6 +21,7 @@ export interface Word extends Syncable {
   // Deutsch (Lernwörterblätter): en = das deutsche Wort, das geschrieben/gelesen wird
   syllables?: string[] // z. B. ["Kat", "ze"]
   kind?: 'lern' | 'lese' // Lernwort (schreiben) oder Leserakete (lesen)
+  voice?: string // Deutsch: eigene Aufnahme der Eltern (data:-URL), wird mit dem Wort abgeglichen
 }
 
 export interface WordList extends Syncable {

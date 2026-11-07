@@ -6,7 +6,7 @@ import { buildGermanRound, lettersFor, type GermanStep, type Tile } from '../log
 import { today } from '../logic/dates'
 import type { DayLog, Word } from '../logic/types'
 import { DEFAULT_RULES, type DayRules } from '../logic/rewards'
-import { speakDe } from '../lib/speech'
+import { hasVoice, speakDe } from '../lib/speech'
 import { play } from '../lib/sounds'
 import { useActivityClock } from '../lib/useActivityClock'
 import { Btn, SpeakerIcon, TopBar } from '../ui/components'
@@ -125,7 +125,6 @@ function BlumeStep({
     if (finished || found.includes(p.front)) return
     if (p.real) {
       play('tap')
-      speakDe(p.front + end)
       setMsg('')
       const f = [...found, p.front]
       setFound(f)
@@ -172,7 +171,7 @@ function BlumeStep({
       <div className="min-h-[56px] space-y-1">
         <div className="flex flex-wrap justify-center gap-2">
           {found.map((f) => (
-            <button key={f} onClick={() => speakDe(f + end)} className="rounded-xl bg-chalk text-pitch px-3 py-1 font-display text-2xl font-extrabold">
+            <button key={f} className="rounded-xl bg-chalk text-pitch px-3 py-1 font-display text-2xl font-extrabold">
               {f}
               <span className="text-[#d97706]">{end}</span>
             </button>
@@ -197,14 +196,8 @@ function ReimStep({ word, options, correct, onDone, onNext }: { word: string; op
   const [wrong, setWrong] = useState<string[]>([])
   const done = picked === correct
 
-  useEffect(() => {
-    const t = setTimeout(() => speakDe(word), 300)
-    return () => clearTimeout(t)
-  }, [word])
-
   const pick = (o: string) => {
     if (done) return
-    speakDe(o)
     if (o === correct) {
       setPicked(o)
       setTimeout(() => play('correct'), 500)
@@ -219,10 +212,9 @@ function ReimStep({ word, options, correct, onDone, onNext }: { word: string; op
     <div className="space-y-5 text-center animate-rise">
       <div className="text-sm uppercase tracking-widest text-chalk/60">Reimwort finden</div>
       <div className="text-chalk/80">Was reimt sich auf …</div>
-      <button onClick={() => speakDe(word)} className="mx-auto flex items-center gap-3 rounded-2xl bg-chalk text-pitch px-5 py-3">
-        <SpeakerIcon size={26} />
+      <div className="mx-auto w-fit rounded-2xl bg-chalk text-pitch px-5 py-3">
         <span className="font-display text-4xl font-extrabold">{word}</span>
-      </button>
+      </div>
       <div className="grid gap-3">
         {options.map((o) => (
           <button
@@ -237,7 +229,6 @@ function ReimStep({ word, options, correct, onDone, onNext }: { word: string; op
           </button>
         ))}
       </div>
-      <div className="text-xs text-chalk/60">Tipp: Antippen liest das Wort vor.</div>
       {done && (
         <div className="space-y-3 animate-pop">
           <div className="font-display text-3xl font-extrabold uppercase text-lime">
@@ -260,8 +251,9 @@ function SilbenStep({ word, onDone, onNext }: { word: Word; onDone: (ok: boolean
   const [errors, setErrors] = useState(0)
   const finished = placed.length === syl.length
 
+  const voice = hasVoice(word)
   useEffect(() => {
-    const t = setTimeout(() => speakDe(word.en), 300)
+    const t = setTimeout(() => speakDe(word), 300)
     return () => clearTimeout(t)
   }, [word])
 
@@ -273,7 +265,7 @@ function SilbenStep({ word, onDone, onNext }: { word: Word; onDone: (ok: boolean
       setPlaced(p)
       if (p.length === syl.length) {
         play('correct')
-        speakDe(word.en, syl)
+        speakDe(word)
         onDone(errors === 0)
       }
     } else {
@@ -288,9 +280,13 @@ function SilbenStep({ word, onDone, onNext }: { word: Word; onDone: (ok: boolean
     <div className="space-y-6 text-center animate-rise" data-word={word.en} data-syl={JSON.stringify(syl)}>
       <div className="text-sm uppercase tracking-widest text-chalk/60">Silben-Bögen</div>
       <div className="text-chalk/80">Tippe die Silben in der richtigen Reihenfolge!</div>
-      <button onClick={() => speakDe(word.en)} className="mx-auto flex items-center gap-2 rounded-full bg-chalk text-pitch px-4 py-2 font-semibold">
-        <SpeakerIcon size={20} /> Anhören
-      </button>
+      {voice ? (
+        <button onClick={() => speakDe(word)} className="mx-auto flex items-center gap-2 rounded-full bg-chalk text-pitch px-4 py-2 font-semibold">
+          <SpeakerIcon size={20} /> Anhören
+        </button>
+      ) : (
+        <div className="mx-auto w-fit rounded-2xl bg-chalk text-pitch px-5 py-2 font-display text-4xl font-extrabold">{word.en}</div>
+      )}
 
       {/* Ergebnis mit Bögen */}
       <div className="flex justify-center items-end gap-1 min-h-[96px]">
@@ -337,9 +333,17 @@ function SchreibenStep({ word, onDone, onNext }: { word: Word; onDone: (errors: 
   const [errors, setErrors] = useState(0)
   const [hint, setHint] = useState('')
   const finished = used.length === target.length
+  // Ohne Aufnahme: Schauen, merken, schreiben – das Wort steht kurz da und verschwindet dann
+  const voice = hasVoice(word)
+  const [peek, setPeek] = useState(!voice)
+  useEffect(() => {
+    if (!peek) return
+    const t = setTimeout(() => setPeek(false), 4000)
+    return () => clearTimeout(t)
+  }, [peek])
 
   useEffect(() => {
-    const t = setTimeout(() => speakDe(word.en), 300)
+    const t = setTimeout(() => speakDe(word), 300)
     return () => clearTimeout(t)
   }, [word])
 
@@ -353,7 +357,7 @@ function SchreibenStep({ word, onDone, onNext }: { word: Word; onDone: (errors: 
       setHint('')
       if (u.length === target.length) {
         play(errors === 0 ? 'correct' : 'almost')
-        speakDe(word.en)
+        speakDe(word)
         onDone(errors)
       }
     } else {
@@ -367,13 +371,29 @@ function SchreibenStep({ word, onDone, onNext }: { word: Word; onDone: (errors: 
 
   return (
     <div className="space-y-5 text-center animate-rise" data-word={word.en}>
-      <div className="text-sm uppercase tracking-widest text-chalk/60">Hören und Schreiben</div>
-      <button onClick={() => speakDe(word.en)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
-        <span className="h-16 w-16 rounded-full bg-chalk text-pitch grid place-items-center">
-          <SpeakerIcon size={32} />
-        </span>
-        <span className="text-sm text-chalk/70">Hör gut zu und leg das Wort!</span>
-      </button>
+      <div className="text-sm uppercase tracking-widest text-chalk/60">{voice ? 'Hören und Schreiben' : 'Schauen, merken, schreiben'}</div>
+      {voice ? (
+        <button onClick={() => speakDe(word)} className="mx-auto flex flex-col items-center gap-1" aria-label="Wort anhören">
+          <span className="h-16 w-16 rounded-full bg-chalk text-pitch grid place-items-center">
+            <SpeakerIcon size={32} />
+          </span>
+          <span className="text-sm text-chalk/70">Hör gut zu und leg das Wort!</span>
+        </button>
+      ) : peek ? (
+        <div className="space-y-2 animate-pop">
+          <div className="mx-auto w-fit rounded-2xl bg-chalk text-pitch px-6 py-3 font-display text-5xl font-extrabold">{word.en}</div>
+          <div className="text-sm text-chalk/70">Schau dir das Wort genau an!</div>
+          <Btn size="md" variant="ghost" onClick={() => setPeek(false)}>
+            Gemerkt!
+          </Btn>
+        </div>
+      ) : (
+        !finished && (
+          <button onClick={() => setPeek(true)} className="mx-auto block rounded-full bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/20">
+            👀 Nochmal ansehen
+          </button>
+        )
+      )}
 
       {/* Schreiblinie */}
       <div className="flex justify-center flex-wrap gap-1.5">
@@ -385,7 +405,7 @@ function SchreibenStep({ word, onDone, onNext }: { word: Word; onDone: (errors: 
       </div>
       <div className="h-5 text-gold font-semibold">{hint}</div>
 
-      {!finished ? (
+      {peek ? null : !finished ? (
         <div className="grid grid-cols-5 gap-2 max-w-sm mx-auto">
           {tiles.map((t) => (
             <button
@@ -447,10 +467,12 @@ function RaketeStep({ words, onWord, onNext }: { words: Word[]; onWord: () => vo
       {!launched ? (
         <>
           <div className="text-chalk/70">Lies das Wort laut vor! ({i + 1} von {words.length})</div>
-          <div className="grid grid-cols-2 gap-3">
-            <Btn variant="ghost" size="md" onClick={() => speakDe(words[i].en)}>
-              🔊 Anhören
-            </Btn>
+          <div className={`grid gap-3 ${hasVoice(words[i]) ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {hasVoice(words[i]) && (
+              <Btn variant="ghost" size="md" onClick={() => speakDe(words[i])}>
+                🔊 Anhören
+              </Btn>
+            )}
             <Btn size="md" onClick={read}>
               Gelesen!
             </Btn>

@@ -322,7 +322,7 @@ describe('Elfmeter Deutsch', () => {
     const shots = pickShots(pool, new Map(), 'de', () => 0.3)
     expect(shots).toHaveLength(5)
     for (const s of shots) {
-      expect(s.dir).toBe('hear-de')
+      expect(['hear-de', 'spell-de']).toContain(s.dir)
       expect(s.word.kind).toBe('lern')
       expect(s.options[s.correct]).toBe(s.word.en)
     }
@@ -349,5 +349,35 @@ describe('Neue deutsche Wörter pro Tag', () => {
     expect(roundWords(lists, pool, prog, '2026-11-07', 7).map((w) => w.en)).toEqual(heute.map((w) => w.en)) // nochmal: dieselben
     expect(roundWords(lists, pool, prog, '2026-11-08', 7)[0].en).toBe('Großeltern') // morgen geht es weiter
     expect(roundWords(lists, pool, prog, '2026-11-08', 3)).toHaveLength(3)
+  })
+})
+
+describe('Elfmeter Deutsch ohne Aufnahme', () => {
+  it('falsch geschriebene Varianten sind anders als das Wort', async () => {
+    const { misspellings, pickShots } = await import('./penalty')
+    const { germanSheets } = await import('../data/german')
+    for (const w of germanSheets.flatMap((s) => s.words).filter((w) => w.kind === 'lern')) {
+      const m = misspellings(w.en, () => 0.4)
+      expect(m.length, w.en).toBeGreaterThanOrEqual(2)
+      for (const x of m) expect(x).not.toBe(w.en)
+    }
+    const shots = pickShots(germanSheets[6].words, new Map(), 'de', () => 0.3)
+    expect(shots.every((s) => s.dir === 'spell-de' && s.options[s.correct] === s.word.en)).toBe(true)
+    const withVoice = germanSheets[6].words.map((w) => ({ ...w, voice: 'data:audio/webm;base64,AA' }))
+    expect(pickShots(withVoice, new Map(), 'de', () => 0.3).every((s) => s.dir === 'hear-de')).toBe(true)
+  })
+})
+
+describe('Eigene Aufnahmen', () => {
+  it('schneidet Stille ab und gleicht die Lautstärke an', async () => {
+    const { trimAndNormalize } = await import('../lib/voice')
+    const rate = 22050
+    const s = new Float32Array(rate * 2) // 2 s, davon 0,5 s Ton in der Mitte
+    for (let i = Math.floor(rate * 0.75); i < Math.floor(rate * 1.25); i++) s[i] = 0.2 * Math.sin(i / 5)
+    const out = trimAndNormalize(s, rate)
+    expect(out.length / rate).toBeGreaterThan(0.5)
+    expect(out.length / rate).toBeLessThan(0.85)
+    expect(Math.max(...out.map(Math.abs))).toBeCloseTo(0.9, 1)
+    expect(trimAndNormalize(new Float32Array(rate), rate)).toHaveLength(0) // Stille
   })
 })

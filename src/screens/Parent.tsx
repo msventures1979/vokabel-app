@@ -29,6 +29,7 @@ import { DevicesPanel } from './Devices'
 import { PhotoImport } from './PhotoImport'
 import { ReminderCard } from './Reminder'
 import { GermanImport } from './GermanImport'
+import { GermanVoices } from './GermanVoices'
 import { signInParent, useSyncState } from '../sync/account'
 import { AccountForm } from './Welcome'
 
@@ -411,19 +412,13 @@ function ChildPanel({ childId }: { childId: string }) {
       {child.settings?.german && (
         <Card className="space-y-3">
           <div className="font-display text-xl font-extrabold uppercase">Deutsch-Lernwörter</div>
-          {lists.filter((l) => l.subject === GERMAN && assigns.some((a) => a.listId === l.id && a.active !== false)).length === 0 ? (
+          {lists.filter((l) => l.subject === GERMAN && assigns.some((a) => a.listId === l.id && a.active !== false)).length === 0 && (
             <p className="text-sm text-chalk/70">Noch kein Lernwörterblatt.</p>
-          ) : (
-            <ul className="text-sm space-y-1">
-              {lists
-                .filter((l) => l.subject === GERMAN && assigns.some((a) => a.listId === l.id && a.active !== false))
-                .sort((a, b) => a.title.localeCompare(b.title, 'de', { numeric: true }))
-                .map((l) => (
-                  <li key={l.id}>📄 {l.title}</li>
-                ))}
-            </ul>
           )}
-          <p className="text-xs text-chalk/60">Geübt wird immer das neueste Blatt. Ältere Lernwörter kommen zur Wiederholung wieder.</p>
+          <p className="text-xs text-chalk/60">
+            Neue Lernwörter kommen der Reihe nach aus den Blättern, so viele wie oben bei „Neue Wörter pro Tag“. Ältere kommen zur Wiederholung wieder.
+          </p>
+          <GermanVoices childId={childId} />
           <GermanImport childId={childId} childName={child.name} nextNumber={lists.filter((l) => l.subject === GERMAN).length + 1} />
         </Card>
       )}
